@@ -450,6 +450,7 @@ void UrlCopyProcess::runTransfer(Transfer &transfer, Gfal2TransferParams &params
     FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Disable delegation: " << opts.noDelegation << commit;
     FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Disable local streaming: " << opts.noStreaming << commit;
     FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Evict source file: " << opts.evict << commit;
+    FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Delete Mutihop file: " << opts.multihopDelete << commit;
     FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Dest space token: " << transfer.destTokenDescription << commit;
     FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Source space token: " << transfer.sourceTokenDescription << commit;
     FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Checksum: " << transfer.checksumValue << commit;
@@ -565,6 +566,18 @@ void UrlCopyProcess::runTransfer(Transfer &transfer, Gfal2TransferParams &params
         }
         catch (const Gfal2Exception &ex) {
             FTS3_COMMON_LOGGER_NEWLOG(WARNING) << "RELEASE-PIN Failed to release file for SRM source: "
+                                               << transfer.source << commit;
+        }
+    }
+
+    // Delete source file
+    if (opts.multihopDelete) {
+        FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Deleting source file in a multihop transfer" << commit;
+        try {
+            gfal2.deleteFile(transfer.source);
+        }
+        catch (const Gfal2Exception &ex) {
+            FTS3_COMMON_LOGGER_NEWLOG(WARNING) << "DELETE Failed to delete file: "
                                                << transfer.source << commit;
         }
     }

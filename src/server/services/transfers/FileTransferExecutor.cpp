@@ -203,6 +203,11 @@ void FileTransferExecutor::run(boost::any & ctx)
                 cmdBuilder.setOverwrite(true);
             }
 
+            // Delete files in multihop
+            if (tf.jobType == Job::kTypeMultiHop && tf.lastHop) {
+                cmdBuilder.setMultihopDeletion(fts3::config::ServerConfig::instance().get<bool>("MultihopDeletion"));
+            }
+
             int retry_max = db->getRetry(tf.jobId);
             cmdBuilder.setMaxNumberOfRetries(retry_max < 0 ? 0 : retry_max);
 

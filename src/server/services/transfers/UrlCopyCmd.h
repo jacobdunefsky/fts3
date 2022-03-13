@@ -82,6 +82,7 @@ public:
     void setDisableStreaming(bool);
     void setOverwrite(bool);
     void setThirdPartyTURL(const std::string&);
+    void setMultihopDeletion(bool);
 
     // Observers
     int getBuffersize();

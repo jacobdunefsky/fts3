@@ -473,6 +473,11 @@ po::options_description ServerConfigReader::_defineConfigOptions()
         po::value<std::string>( &(_vars["RetrieveSEToken"]) )->default_value("true"),
         "Enable or disable retrieval of SE-issued tokens in the transfer agent"
     )
+    (
+        "MultihopDeletion",
+        po::value<std::string>( &(_vars["MultihopDeletion"]) )->default_value("true"),
+        "Enable or disable deletion of intermediate files in a multihop job"
+    )
     ;
 
     return config;

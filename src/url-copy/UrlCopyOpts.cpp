@@ -78,6 +78,7 @@ const option UrlCopyOpts::long_options[] =
     {"no-delegation",     no_argument,       0, 810},
     {"no-streaming",      no_argument,       0, 811},
     {"evict",             no_argument,       0, 812},
+    {"multihop-delete",   no_argument,       0, 813},
 
     {"retry",             required_argument, 0, 820},
     {"retry_max-max",     required_argument, 0, 821},
@@ -171,7 +172,7 @@ static Transfer::TransferList initListFromFile(const Transfer &reference, const 
 
 UrlCopyOpts::UrlCopyOpts():
     isSessionReuse(false), isMultipleReplicaJob(false),
-    strictCopy(false), dstFileReport(false), retrieveSEToken(false),
+    strictCopy(false), dstFileReport(false), retrieveSEToken(false), multihopDelete(false),
     optimizerLevel(0), overwrite(false), noDelegation(false), nStreams(0), tcpBuffersize(0),
     timeout(0), enableUdt(false), enableIpv6(boost::indeterminate), addSecPerMb(0),
     noStreaming(false), evict(false), enableMonitoring(false), active(0), retry(0), retryMax(0),
@@ -363,6 +364,9 @@ void UrlCopyOpts::parse(int argc, char * const argv[])
                     break;
                 case 812:
                     evict = true;
+                    break;
+                case 813:
+                    multihopDelete = true;
                     break;
 
                 case 820:

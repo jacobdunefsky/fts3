@@ -336,6 +336,11 @@ void UrlCopyCmd::setThirdPartyTURL(const std::string& thirdPartyTURL)
     setOption("3rd-party-turl", thirdPartyTURL);
 }
 
+void UrlCopyCmd::setMultihopDeletion(bool multihop_deletion)
+{
+    setFlag("multihop-delete", multihop_deletion);
+}
+
 
 int UrlCopyCmd::getBuffersize()
 {

@@ -384,6 +384,14 @@ public:
         }
     }
 
+    // Delete file
+    void deleteFile(const std::string &url) {
+        GError *error = NULL;
+        if (gfal2_unlink(context, url.c_str(), &error) < 0) {
+            throw Gfal2Exception(error);
+        }
+    }
+
     /// Get the checksum of a file
     std::string getChecksum(const std::string &url, const std::string &type) {
         char buffer[512];

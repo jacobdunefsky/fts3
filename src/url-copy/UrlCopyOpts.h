@@ -75,6 +75,7 @@ public:
     bool     evict;
     bool     enableMonitoring; // Legacy option
     unsigned active; // Legacy option
+    bool     multihopDelete;
 
     unsigned retry;
     unsigned retryMax;
