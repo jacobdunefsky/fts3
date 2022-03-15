@@ -326,6 +326,14 @@ public:
         }
     }
 
+    /// Set a integer config value
+    void set(const std::string &group, const std::string &key, const int &value) {
+        GError *error = NULL;
+        if (gfal2_set_opt_integer(context, group.c_str(), key.c_str(), value, &error) < 0) {
+            throw Gfal2Exception(error);
+        }
+    }
+
     /// Set user agent
     void setUserAgent(const std::string &id, const std::string &version) {
         GError *error = NULL;
