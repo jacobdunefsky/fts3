@@ -475,7 +475,7 @@ po::options_description ServerConfigReader::_defineConfigOptions()
     )
     (
         "MultihopDeletion",
-        po::value<std::string>( &(_vars["MultihopDeletion"]) )->default_value("true"),
+        po::value<std::string>( &(_vars["MultihopDeletion"]) )->default_value("false"),
         "Enable or disable deletion of intermediate files in a multihop job"
     )
     ;
