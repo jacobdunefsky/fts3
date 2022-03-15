@@ -574,6 +574,9 @@ void UrlCopyProcess::runTransfer(Transfer &transfer, Gfal2TransferParams &params
     if (opts.multihopDelete) {
         FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Deleting source file in a multihop transfer" << commit;
         try {
+            gfal2.set("HTTP PLUGIN", "OPERATION_TIMEOUT", 30);
+            gfal2.set("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", 30);
+            gfal2.set("CORE", "NAMESPACE_TIMEOUT", 30);
             gfal2.deleteFile(transfer.source);
         }
         catch (const Gfal2Exception &ex) {
