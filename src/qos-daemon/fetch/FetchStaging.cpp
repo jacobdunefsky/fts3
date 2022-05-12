@@ -92,7 +92,9 @@ void FetchStaging::fetch()
             {
                 try
                 {
-                    threadpool.start(new BringOnlineTask(it_t->second));
+                    if(it_t->second->updateState()) {
+                        threadpool.start(new BringOnlineTask(it_t->second));
+                    }
                 }
                 catch(UserError const & ex)
                 {
