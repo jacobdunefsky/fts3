@@ -99,6 +99,21 @@ void Optimizer::run(void)
         // See FTS-1094
         pairs.sort();
 
+        // // Get state of each pair
+        // std::map<Pair, PairState> previousState;
+        // for (auto i = pairs.begin(); i != pairs.end(); ++i) {
+        //     previousState[i] = getPreviousState(*i);
+        // }
+        //
+        // // Run TCN control loop
+        // std::map<Pair, DecisionState> decisionVector = runTCNOptimizer(previousState);
+        //
+        // // Apply the decision to each pair
+        // for (auto i = pairs.begin(); i != pairs.end(); ++i) {
+        //     setOptimizerDecision(*i, decisionVector[i].decision, decisionVector[i].state,
+        //         decisionVector[i].diff, decisionVector[i].rationale.str(), decisionVector[i].epalsed);
+        // }
+
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
             runOptimizerForPair(*i);
         }
