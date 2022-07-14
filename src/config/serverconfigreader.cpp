@@ -488,6 +488,11 @@ po::options_description ServerConfigReader::_defineConfigOptions()
         po::value<std::string>( &(_vars["ExperimentalTapeRESTAPI"]) )->default_value("false"),
         "Enable or disable experimental features of the TAPE REST API"
     )
+    (
+        "EnableTCNOptimizer",
+        po::value<std::string>( &(_vars["EnableTCNOptimizer"]) )->default_value("false"),
+        "Enable control loop of TCN optimizer (Optimizer must be enabled first)"
+    )
     ;
 
     return config;
