@@ -90,6 +90,12 @@ void Optimizer::setEmaAlpha(double alpha)
 }
 
 
+PairState Optimizer::getPairState(const Pair &pair)
+{
+    return inMemoryStore[pair];
+}
+
+
 void Optimizer::run(void)
 {
     FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer run" << commit;
@@ -99,34 +105,23 @@ void Optimizer::run(void)
         // See FTS-1094
         pairs.sort();
 
-        // Read configuration whether TCN control loop is enable
-        auto enableTCNOptimizer = config::ServerConfig::instance().get<bool>("EnableTCNOptimizer");
-
-        if (enableTCNOptimizer) {
-            // TCN optimizer
-            FTS3_COMMON_LOGGER_NEWLOG(INFO) << "TCN Optimizer is used" << commit;
-            // // Get state of each pair
-            // std::map<Pair, PairState> previousState;
-            // for (auto i = pairs.begin(); i != pairs.end(); ++i) {
-            //     previousState[i] = getPreviousState(*i);
-            // }
-            //
-            // // Run TCN control loop
-            // std::map<Pair, DecisionState> decisionVector = runTCNOptimizer(previousState);
-            //
-            // // Apply the decision to each pair
-            // for (auto i = pairs.begin(); i != pairs.end(); ++i) {
-            //     setOptimizerDecision(*i, decisionVector[i].decision, decisionVector[i].state,
-            //         decisionVector[i].diff, decisionVector[i].rationale.str(), decisionVector[i].epalsed);
-            // }
-        }
-        else {
-            // Tranditional FTS optimizer
-            FTS3_COMMON_LOGGER_NEWLOG(INFO) << "Traditional Optimizer is used" << commit;
-            for (auto i = pairs.begin(); i != pairs.end(); ++i) {
-                runOptimizerForPair(*i);
+        // Retrieve pair state
+        std::map<Pair, PairState> aggregatedPairState;
+        for (auto i = pairs.begin(); i != pairs.end(); ++i) {
+            auto optMode = runOptimizerForPair(*i);
+            if (optMode == kOptimizerAggregated) {
+                aggregatedPairState[*i] = getPairState(*i);
             }
         }
+
+        // Start ticking!
+        boost::timer::cpu_timer timer;
+
+        // Run TCN control loop
+        std::map<Pair, DecisionState> decisionVector = runTCNOptimizer(aggregatedPairState);
+
+        // Apply the decision to each pair
+        applyDecisions(decisionVector, timer);
     }
     catch (std::exception &e) {
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
@@ -137,13 +132,99 @@ void Optimizer::run(void)
 }
 
 
-void Optimizer::runOptimizerForPair(const Pair &pair)
+std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairState> aggregatedPairState)
+{
+    std::map<Pair, DecisionState> decisionVector;
+
+    // Implement TCN control loop
+    // FIXME: Naive implementation
+    for (auto it=aggregatedPairState.begin(); it != aggregatedPairState.end(); ++it) {
+        auto pair = it->first;
+        auto lastState = it->second;
+
+        int lastDecision = dataSource->getOptimizerValue(pair);
+        int decision = 0;
+        std::stringstream rationale;
+
+        // Optimizer working values
+        Range range;
+        StorageLimits limits;
+        getOptimizerWorkingRange(pair, &range, &limits);
+
+        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer range for " << pair << ": " << range  << commit;
+
+        // Initialize current state
+        PairState current;
+        current.timestamp = time(NULL);
+        current.avgDuration = dataSource->getAverageDuration(pair, boost::posix_time::minutes(30));
+
+        boost::posix_time::time_duration timeFrame = calculateTimeFrame(current.avgDuration);
+
+        dataSource->getThroughputInfo(pair, timeFrame,
+            &current.throughput, &current.filesizeAvg, &current.filesizeStdDev);
+        current.successRate = dataSource->getSuccessRateForPair(pair, timeFrame, &current.retryCount);
+        current.activeCount = dataSource->getActive(pair);
+        current.queueSize = dataSource->getSubmitted(pair);
+
+        DecisionState decisionInfo;
+
+        // There is no value yet. In this case, pick the high value if configured, mid-range otherwise.
+        if (lastDecision == 0) {
+            if (range.specific) {
+                decision = range.max;
+                rationale << "No information. Use configured range max.";
+            } else {
+                decision = range.min + (range.max - range.min) / 2;
+                rationale << "No information. Start halfway.";
+            }
+
+            // setOptimizerDecision(pair, decision, current, decision, rationale.str(), timer.elapsed());
+            decisionInfo.decision = decision;
+            decisionInfo.current = &current;
+            decisionInfo.diff = decision;
+            decisionInfo.rationale = rationale.str();
+
+            current.ema = current.throughput;
+        } else {
+            rationale << "Naive implementation. Keep previous decision.";
+            decisionInfo.decision = lastDecision;
+            decisionInfo.current = &current;
+            decisionInfo.diff = 0;
+            decisionInfo.rationale = rationale.str();
+
+            // Calculate new Exponential Moving Average
+            current.ema = exponentialMovingAverage(current.throughput, emaAlpha, lastState.ema);
+        }
+
+        // Remember to store new state back to inMemoryStore
+        inMemoryStore[pair] = current;
+
+        decisionVector[pair] = decisionInfo;
+    }
+    return decisionVector;
+}
+
+
+void Optimizer::applyDecisions(std::map<Pair, DecisionState> decisionVector, boost::timer::cpu_timer timer)
+{
+    for (auto it=decisionVector.begin(); it != decisionVector.end(); ++it) {
+        auto pair = it->first;
+        auto decisionInfo = it->second;
+        setOptimizerDecision(pair, decisionInfo.decision, *(decisionInfo.current),
+            decisionInfo.diff, decisionInfo.rationale, timer.elapsed());
+        optimizeStreamsForPair(kOptimizerAggregated, pair);
+    }
+}
+
+
+OptimizerMode Optimizer::runOptimizerForPair(const Pair &pair)
 {
     OptimizerMode optMode = dataSource->getOptimizerMode(pair.source, pair.destination);
-    if(optimizeConnectionsForPair(optMode, pair)) {
+    if(optMode < kOptimizerAggregated && optimizeConnectionsForPair(optMode, pair)) {
         // Optimize streams only if optimizeConnectionsForPair did store something
         optimizeStreamsForPair(optMode, pair);
     }
+    return optMode;
 }
 
 }

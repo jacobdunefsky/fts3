@@ -392,8 +392,8 @@ struct type_conversion<OptimizerMode>
         if (ind == soci::i_null) {
             mode = kOptimizerDisabled;
         }
-        else if (v > kOptimizerAggressive) {
-            mode = kOptimizerAggressive;
+        else if (v > kOptimizerAggregated) {
+            mode = kOptimizerAggregated;
         }
         else if (v < 0) {
             mode = kOptimizerDisabled;

@@ -27,7 +27,8 @@ enum OptimizerMode {
     kOptimizerDisabled = 0,
     kOptimizerConservative = 1,
     kOptimizerNormal = 2,
-    kOptimizerAggressive = 3
+    kOptimizerAggressive = 3,
+    kOptimizerAggregated = 4
 };
 
 class LinkConfig

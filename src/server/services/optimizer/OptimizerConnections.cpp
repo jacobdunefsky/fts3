@@ -31,29 +31,6 @@ namespace fts3 {
 namespace optimizer {
 
 
-// borrowed from http://oroboro.com/irregular-ema/
-static inline double exponentialMovingAverage(double sample, double alpha, double cur)
-{
-    if (sample > 0)
-        cur = (sample * alpha) + ((1 - alpha) * cur);
-    return cur;
-}
-
-
-static boost::posix_time::time_duration calculateTimeFrame(time_t avgDuration)
-{
-    if(avgDuration > 0 && avgDuration < 30) {
-        return boost::posix_time::minutes(5);
-    }
-    else if(avgDuration > 30 && avgDuration < 900) {
-        return boost::posix_time::minutes(15);
-    }
-    else {
-        return boost::posix_time::minutes(30);
-    }
-}
-
-
 void Optimizer::getOptimizerWorkingRange(const Pair &pair, Range *range, StorageLimits *limits)
 {
     // Query specific limits

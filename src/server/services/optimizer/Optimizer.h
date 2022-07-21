@@ -39,6 +39,29 @@ namespace fts3 {
 namespace optimizer {
 
 
+// borrowed from http://oroboro.com/irregular-ema/
+static inline double exponentialMovingAverage(double sample, double alpha, double cur)
+{
+    if (sample > 0)
+        cur = (sample * alpha) + ((1 - alpha) * cur);
+    return cur;
+}
+
+
+static boost::posix_time::time_duration calculateTimeFrame(time_t avgDuration)
+{
+    if(avgDuration > 0 && avgDuration < 30) {
+        return boost::posix_time::minutes(5);
+    }
+    else if(avgDuration > 30 && avgDuration < 900) {
+        return boost::posix_time::minutes(15);
+    }
+    else {
+        return boost::posix_time::minutes(30);
+    }
+}
+
+
 struct Range {
     int min, max;
     // Set to true if min,max is configured specifically, or is a *->* configuration
@@ -79,6 +102,15 @@ struct PairState {
     PairState(time_t ts, double thr, time_t ad, double sr, int rc, int ac, int qs, double ema, int conn):
         timestamp(ts), throughput(thr), avgDuration(ad), successRate(sr), retryCount(rc),
         activeCount(ac), queueSize(qs), ema(ema), filesizeAvg(0), filesizeStdDev(0), connections(conn) {}
+};
+
+struct DecisionState {
+    int decision;
+    PairState *current;
+    int diff;
+    std::string rationale;
+
+    DecisionState(): decision(0), current(NULL), diff(0) {}
 };
 
 // To decouple the optimizer core logic from the data storage/representation
@@ -157,9 +189,15 @@ protected:
     // Stores into rangeActiveMin and rangeActiveMax the working range for the optimizer
     void getOptimizerWorkingRange(const Pair &pair, Range *range, StorageLimits *limits);
 
+    // Retrieve previous running state of the pair
+    PairState getPairState(const Pair &pair);
+
     // Updates decision
     void setOptimizerDecision(const Pair &pair, int decision, const PairState &current,
         int diff, const std::string &rationale, boost::timer::cpu_times elapsed);
+
+    // Apply decisions to pairs
+    void applyDecisions(std::map<Pair, DecisionState> decisionVector, boost::timer::cpu_timer timer);
 
 public:
     Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks);
@@ -173,7 +211,8 @@ public:
     void setStepSize(int increase, int increaseAggressive, int decrease);
     void setEmaAlpha(double);
     void run(void);
-    void runOptimizerForPair(const Pair&);
+    OptimizerMode runOptimizerForPair(const Pair&);
+    std::map<Pair, DecisionState> runTCNOptimizer(std::map<Pair, PairState> aggregatedPairState);
 };
 
 
