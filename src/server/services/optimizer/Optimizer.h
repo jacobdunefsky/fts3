@@ -106,11 +106,11 @@ struct PairState {
 
 struct DecisionState {
     int decision;
-    PairState *current;
+    PairState current;
     int diff;
     std::string rationale;
 
-    DecisionState(): decision(0), current(NULL), diff(0) {}
+    DecisionState(): decision(0), diff(0) {}
 };
 
 // To decouple the optimizer core logic from the data storage/representation

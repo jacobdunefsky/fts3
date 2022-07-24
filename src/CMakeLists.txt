@@ -67,3 +67,8 @@ endif()
 if(CLIENTBUILD)
     add_subdirectory(cli)
 endif()
+
+# Used only by ALTO client
+if(ALTOBUILD)
+    add_subdirectory(alto)
+endif()

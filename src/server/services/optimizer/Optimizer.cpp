@@ -108,8 +108,11 @@ void Optimizer::run(void)
         // Retrieve pair state
         std::map<Pair, PairState> aggregatedPairState;
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Test run " << *i << " using traditional optimizer" << commit;
             auto optMode = runOptimizerForPair(*i);
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer mode of " << *i << ": " << optMode << commit;
             if (optMode == kOptimizerAggregated) {
+                FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
                 aggregatedPairState[*i] = getPairState(*i);
             }
         }
@@ -153,20 +156,20 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
 
         FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer range for " << pair << ": " << range  << commit;
 
-        // Initialize current state
-        PairState current;
-        current.timestamp = time(NULL);
-        current.avgDuration = dataSource->getAverageDuration(pair, boost::posix_time::minutes(30));
+        DecisionState decisionInfo;
 
-        boost::posix_time::time_duration timeFrame = calculateTimeFrame(current.avgDuration);
+        // Initialize current state
+        // PairState current;
+        decisionInfo.current.timestamp = time(NULL);
+        decisionInfo.current.avgDuration = dataSource->getAverageDuration(pair, boost::posix_time::minutes(30));
+
+        boost::posix_time::time_duration timeFrame = calculateTimeFrame(decisionInfo.current.avgDuration);
 
         dataSource->getThroughputInfo(pair, timeFrame,
-            &current.throughput, &current.filesizeAvg, &current.filesizeStdDev);
-        current.successRate = dataSource->getSuccessRateForPair(pair, timeFrame, &current.retryCount);
-        current.activeCount = dataSource->getActive(pair);
-        current.queueSize = dataSource->getSubmitted(pair);
-
-        DecisionState decisionInfo;
+            &decisionInfo.current.throughput, &decisionInfo.current.filesizeAvg, &decisionInfo.current.filesizeStdDev);
+        decisionInfo.current.successRate = dataSource->getSuccessRateForPair(pair, timeFrame, &decisionInfo.current.retryCount);
+        decisionInfo.current.activeCount = dataSource->getActive(pair);
+        decisionInfo.current.queueSize = dataSource->getSubmitted(pair);
 
         // There is no value yet. In this case, pick the high value if configured, mid-range otherwise.
         if (lastDecision == 0) {
@@ -180,24 +183,22 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
 
             // setOptimizerDecision(pair, decision, current, decision, rationale.str(), timer.elapsed());
             decisionInfo.decision = decision;
-            decisionInfo.current = &current;
             decisionInfo.diff = decision;
             decisionInfo.rationale = rationale.str();
 
-            current.ema = current.throughput;
+            decisionInfo.current.ema = decisionInfo.current.throughput;
         } else {
             rationale << "Naive implementation. Keep previous decision.";
             decisionInfo.decision = lastDecision;
-            decisionInfo.current = &current;
             decisionInfo.diff = 0;
             decisionInfo.rationale = rationale.str();
 
             // Calculate new Exponential Moving Average
-            current.ema = exponentialMovingAverage(current.throughput, emaAlpha, lastState.ema);
+            decisionInfo.current.ema = exponentialMovingAverage(decisionInfo.current.throughput, emaAlpha, lastState.ema);
         }
 
         // Remember to store new state back to inMemoryStore
-        inMemoryStore[pair] = current;
+        inMemoryStore[pair] = decisionInfo.current;
 
         decisionVector[pair] = decisionInfo;
     }
@@ -210,7 +211,7 @@ void Optimizer::applyDecisions(std::map<Pair, DecisionState> decisionVector, boo
     for (auto it=decisionVector.begin(); it != decisionVector.end(); ++it) {
         auto pair = it->first;
         auto decisionInfo = it->second;
-        setOptimizerDecision(pair, decisionInfo.decision, *(decisionInfo.current),
+        setOptimizerDecision(pair, decisionInfo.decision, decisionInfo.current,
             decisionInfo.diff, decisionInfo.rationale, timer.elapsed());
         optimizeStreamsForPair(kOptimizerAggregated, pair);
     }

@@ -63,6 +63,10 @@ cmake_dependent_option(
     TESTBUILD "Build the tests" OFF
     "NOT ALLBUILD" ON
 )
+cmake_dependent_option(
+    ALTOBUILD "Build for ALTO client" OFF
+    "NOT ALLBUILD" ON
+)
 
 # Definitions
 add_definitions(-D_LARGEFILE64_SOURCE)
