@@ -37,7 +37,10 @@ file(GLOB fts_server_lib_sources
     "*.cpp"
     "services/*/*.cpp"
 )
-list(REMOVE_ITEM fts_server_lib_sources "main.cpp")
+list(REMOVE_ITEM fts_server_lib_sources
+    "main.cpp"
+    "services/optimizer/TestOptimizerTCN.cpp"
+)
 
 add_library(fts_server_lib SHARED ${fts_server_lib_sources})
 target_link_libraries(fts_server_lib
@@ -67,6 +70,18 @@ target_link_libraries(fts_server
     fts_infosys
 	fts_msg_ifce
     ${Boost_LIBRARIES}
+)
+
+# Test executable for TCN optimizer
+add_executable(tcn_optimizer "services/optimizer/TestOptimizerTCN.cpp")
+add_dependencies(tcn_optimizer fts_server_lib)
+target_link_libraries(tcn_optimizer
+  fts_server_lib
+  fts_config
+  fts_common
+  fts_infosys
+	fts_msg_ifce
+  ${Boost_LIBRARIES}
 )
 
 # Man pages

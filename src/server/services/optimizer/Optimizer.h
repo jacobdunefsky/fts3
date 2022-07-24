@@ -23,6 +23,7 @@
 
 #include <list>
 #include <map>
+#include <set>
 #include <string>
 
 #include <boost/noncopyable.hpp>
@@ -37,7 +38,6 @@
 
 namespace fts3 {
 namespace optimizer {
-
 
 // borrowed from http://oroboro.com/irregular-ema/
 static inline double exponentialMovingAverage(double sample, double alpha, double cur)
@@ -105,13 +105,19 @@ struct PairState {
 };
 
 struct DecisionState {
-    int decision;
     PairState current;
+    int decision;
     int diff;
     std::string rationale;
 
     DecisionState(): decision(0), diff(0) {}
+    DecisionState(PairState current): decision(0), diff(0), current(current) {}
+    DecisionState(PairState current, int decision): current(current), decision(decision), diff(0) {}
+    DecisionState(PairState current, int decision, int diff): current(current), decision(decision), diff(diff) {}
+    DecisionState(PairState current, int decision, int diff, std::string rationale): decision(decision), diff(diff), current(current), rationale(rationale) {}
 };
+
+#include "OptimizerTCN.h"
 
 // To decouple the optimizer core logic from the data storage/representation
 class OptimizerDataSource {
@@ -179,6 +185,12 @@ protected:
     int increaseStepSize, increaseAggressiveStepSize;
     double emaAlpha;
 
+    //
+    // Member for TCN optimizer specific
+    //
+    TCNOptimizer *tcnOptimizer;
+
+
     // Run the optimization algorithm for the number of connections.
     // Returns true if a decision is stored
     bool optimizeConnectionsForPair(OptimizerMode optMode, const Pair &);
@@ -200,7 +212,7 @@ protected:
     void applyDecisions(std::map<Pair, DecisionState> decisionVector, boost::timer::cpu_timer timer);
 
 public:
-    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks);
+    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer=NULL);
     ~Optimizer();
 
     void setSteadyInterval(boost::posix_time::time_duration);
@@ -213,6 +225,7 @@ public:
     void run(void);
     OptimizerMode runOptimizerForPair(const Pair&);
     std::map<Pair, DecisionState> runTCNOptimizer(std::map<Pair, PairState> aggregatedPairState);
+    std::map<Pair, DecisionState> runNaiveTCNOptimizer(std::map<Pair, PairState> aggregatedPairState);
 };
 
 

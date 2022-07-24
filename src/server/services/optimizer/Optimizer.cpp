@@ -31,8 +31,8 @@ namespace fts3 {
 namespace optimizer {
 
 
-Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks):
-    dataSource(ds), callbacks(callbacks),
+Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer):
+    dataSource(ds), callbacks(callbacks), tcnOptimizer(tcnOptimizer),
     optimizerSteadyInterval(boost::posix_time::seconds(60)), maxNumberOfStreams(10),
     maxSuccessRate(100), lowSuccessRate(97), baseSuccessRate(96),
     decreaseStepSize(1), increaseStepSize(1), increaseAggressiveStepSize(2),
@@ -92,7 +92,29 @@ void Optimizer::setEmaAlpha(double alpha)
 
 PairState Optimizer::getPairState(const Pair &pair)
 {
-    return inMemoryStore[pair];
+    PairState lastState = inMemoryStore[pair];
+    PairState current;
+    current.timestamp = time(NULL);
+    current.avgDuration = dataSource->getAverageDuration(pair, boost::posix_time::minutes(30));
+
+    boost::posix_time::time_duration timeFrame = calculateTimeFrame(current.avgDuration);
+
+    dataSource->getThroughputInfo(pair, timeFrame,
+                                  &current.throughput, &current.filesizeAvg, &current.filesizeStdDev);
+    current.successRate = dataSource->getSuccessRateForPair(pair, timeFrame, &current.retryCount);
+    current.activeCount = dataSource->getActive(pair);
+    current.queueSize = dataSource->getSubmitted(pair);
+
+    int lastDecision = dataSource->getOptimizerValue(pair);
+    if (lastDecision == 0) {
+        current.ema = current.throughput;
+    }
+    else {
+        // Calculate new Exponential Moving Average
+        current.ema = exponentialMovingAverage(current.throughput, emaAlpha, lastState.ema);
+    }
+
+    return current;
 }
 
 
@@ -120,8 +142,18 @@ void Optimizer::run(void)
         // Start ticking!
         boost::timer::cpu_timer timer;
 
+        std::map<Pair, DecisionState> decisionVector;
         // Run TCN control loop
-        std::map<Pair, DecisionState> decisionVector = runTCNOptimizer(aggregatedPairState);
+        if (tcnOptimizer == NULL) {
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "TCN Optimizer is not configured. Calling naive optimizer." << commit;
+            decisionVector = runNaiveTCNOptimizer(aggregatedPairState);
+        }
+        else {
+            decisionVector = runTCNOptimizer(aggregatedPairState);
+        }
+
+        boost::timer::cpu_times const elapsed(timer.elapsed());
+        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Global time elapsed: " << elapsed.system << ", " << elapsed.user << commit;
 
         // Apply the decision to each pair
         applyDecisions(decisionVector, timer);
@@ -137,13 +169,39 @@ void Optimizer::run(void)
 
 std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairState> aggregatedPairState)
 {
+    std::map<Pair, int> decisions;
+    std::map<Pair, DecisionState> decisionVector;
+
+    tcnOptimizer->step(aggregatedPairState, decisions);
+
+    for (auto it = decisions.begin(); it != decisions.end(); ++it) {
+        auto pair = it->first;
+        int decision = it->second;
+        int lastDecision = dataSource->getOptimizerValue(pair);
+        auto current = aggregatedPairState[pair];
+
+        std::stringstream rationale;
+        rationale << "Calculated by zero order gradient optimizer.";
+
+        DecisionState decisionInfo(current, decision, decision - lastDecision, rationale.str());
+        decisionVector[pair] = decisionInfo;
+
+        // Remember to store new state back to inMemoryStore
+        inMemoryStore[pair] = current;
+    }
+    return decisionVector;
+}
+
+
+std::map<Pair, DecisionState> Optimizer::runNaiveTCNOptimizer(std::map<Pair, PairState> aggregatedPairState)
+{
     std::map<Pair, DecisionState> decisionVector;
 
     // Implement TCN control loop
     // FIXME: Naive implementation
     for (auto it=aggregatedPairState.begin(); it != aggregatedPairState.end(); ++it) {
         auto pair = it->first;
-        auto lastState = it->second;
+        auto current = it->second;
 
         int lastDecision = dataSource->getOptimizerValue(pair);
         int decision = 0;
@@ -156,20 +214,7 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
 
         FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer range for " << pair << ": " << range  << commit;
 
-        DecisionState decisionInfo;
-
-        // Initialize current state
-        // PairState current;
-        decisionInfo.current.timestamp = time(NULL);
-        decisionInfo.current.avgDuration = dataSource->getAverageDuration(pair, boost::posix_time::minutes(30));
-
-        boost::posix_time::time_duration timeFrame = calculateTimeFrame(decisionInfo.current.avgDuration);
-
-        dataSource->getThroughputInfo(pair, timeFrame,
-            &decisionInfo.current.throughput, &decisionInfo.current.filesizeAvg, &decisionInfo.current.filesizeStdDev);
-        decisionInfo.current.successRate = dataSource->getSuccessRateForPair(pair, timeFrame, &decisionInfo.current.retryCount);
-        decisionInfo.current.activeCount = dataSource->getActive(pair);
-        decisionInfo.current.queueSize = dataSource->getSubmitted(pair);
+        DecisionState decisionInfo(current);
 
         // There is no value yet. In this case, pick the high value if configured, mid-range otherwise.
         if (lastDecision == 0) {
@@ -186,19 +231,16 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
             decisionInfo.diff = decision;
             decisionInfo.rationale = rationale.str();
 
-            decisionInfo.current.ema = decisionInfo.current.throughput;
         } else {
             rationale << "Naive implementation. Keep previous decision.";
             decisionInfo.decision = lastDecision;
             decisionInfo.diff = 0;
             decisionInfo.rationale = rationale.str();
 
-            // Calculate new Exponential Moving Average
-            decisionInfo.current.ema = exponentialMovingAverage(decisionInfo.current.throughput, emaAlpha, lastState.ema);
         }
 
         // Remember to store new state back to inMemoryStore
-        inMemoryStore[pair] = decisionInfo.current;
+        inMemoryStore[pair] = current;
 
         decisionVector[pair] = decisionInfo;
     }
@@ -211,8 +253,19 @@ void Optimizer::applyDecisions(std::map<Pair, DecisionState> decisionVector, boo
     for (auto it=decisionVector.begin(); it != decisionVector.end(); ++it) {
         auto pair = it->first;
         auto decisionInfo = it->second;
+
+        boost::timer::cpu_times const elapsed(timer.elapsed());
+
+        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Apply decision for pair " << pair << ":\n" \
+                                         << "\tdecision: " << decisionInfo.decision << "\n" \
+                                         << "\tdiff: " << decisionInfo.diff << "\n" \
+                                         << "\trationale: " << decisionInfo.rationale << "\n" \
+                                         << "\ttime elapsed: " << elapsed.system << ", " << elapsed.user << "\n" \
+                                         << "\tcurrent: " << decisionInfo.current.activeCount << ", " << decisionInfo.current.ema << "\n" \
+                                         << commit;
+
         setOptimizerDecision(pair, decisionInfo.decision, decisionInfo.current,
-            decisionInfo.diff, decisionInfo.rationale, timer.elapsed());
+            decisionInfo.diff, decisionInfo.rationale, elapsed);
         optimizeStreamsForPair(kOptimizerAggregated, pair);
     }
 }

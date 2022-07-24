@@ -32,6 +32,7 @@ namespace server {
 using optimizer::Optimizer;
 using optimizer::OptimizerCallbacks;
 using optimizer::PairState;
+using optimizer::TCNOptimizer;
 
 
 class OptimizerNotifier : public OptimizerCallbacks {
@@ -103,9 +104,13 @@ void OptimizerService::runService()
         config::ServerConfig::instance().get<std::string>("MessagingDirectory")
     );
 
+    // TODO: read parameters from configuration
+    TCNOptimizer tcnOptimizer;
+
     Optimizer optimizer(
         db::DBSingleton::instance().getDBObjectInstance()->getOptimizerDataSource(),
-        &optimizerCallbacks
+        &optimizerCallbacks,
+        &tcnOptimizer
     );
     optimizer.setSteadyInterval(optimizerSteadyInterval);
     optimizer.setMaxNumberOfStreams(maxNumberOfStreams);
