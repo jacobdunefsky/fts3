@@ -105,7 +105,9 @@ void OptimizerService::runService()
     );
 
     // TODO: read parameters from configuration
-    TCNOptimizer tcnOptimizer;
+    TCNOptimizer tcnOptimizer(
+        config::ServerConfig::instance().get<std::string>("TCNPenaltyMethod")
+    );
 
     Optimizer optimizer(
         db::DBSingleton::instance().getDBObjectInstance()->getOptimizerDataSource(),

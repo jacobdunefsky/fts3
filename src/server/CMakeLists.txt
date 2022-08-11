@@ -47,6 +47,7 @@ target_link_libraries(fts_server_lib
     fts_db_generic
 	fts_msg_bus
     fts_proxy
+    alto_client_common
     gridsite
 	${GLIB2_LIBRARIES}
 	${Boost_LIBRARIES}

@@ -45,7 +45,7 @@ main(int argc, char **argv)
     flows.push_back(flow);
     flows_str.erase(0, pos + 1);
   }
-  
+
   EndpointFlow flow = EndpointFlow();
   size_t arrow_pos = flows_str.find("->");
   size_t src_pos = 0;
@@ -90,4 +90,3 @@ main(int argc, char **argv)
 
   return 0;
 }
-

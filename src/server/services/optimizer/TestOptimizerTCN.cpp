@@ -2,14 +2,14 @@
 
 #include "Optimizer.h"
 
-using namespace std; 
+using namespace std;
 
 using namespace fts3;
 using namespace optimizer;
 
 float throughputForSingleConn(int n, int bufferSize = 32*pow(2, 20), float linkCap = 10*pow(2, 30),
                                 float detroriationCoeff=0.05, int detoriariationLimit = 300, float linkDelay = 100 //ms
-) 
+)
 {
     float refCap = max(min(linkCap * (1 - ((n - detoriariationLimit) * detroriationCoeff)), linkCap), 0.0f);
     //cout << "ref cap:\t" << refCap << std::endl ;
@@ -23,9 +23,9 @@ int main() {
     map<Pair, double> checkedGradients;
     optimizer.getGradients(checkedGradients);
     cout << checkedGradients.size() << "\n";
-    map<Pair, float> conditions; 
-    Pair pair1("a", "b"); 
-    Pair pair2("a", "c"); 
+    map<Pair, float> conditions;
+    Pair pair1("a", "b");
+    Pair pair2("a", "c");
     optimizer.setConditionForPair(pair1, pow(2, 33));
     optimizer.setConditionForPair(pair2, pow(2, 31));
     optimizer.getConditions(conditions);
@@ -61,7 +61,7 @@ int main() {
     for (int i=0; i<100; i++)   {
         int numConn = distribution(generator);
         float sum = 0;
-        std::map<Pair, PairState> tmpConns; 
+        std::map<Pair, PairState> tmpConns;
         for (int j = 0; j < numConn; j++) {
             Pair tmpPair("a"+std::to_string(j), "b"+std::to_string(j));
             float thr = max(thrDistribution(generator), 0.0f);
@@ -72,17 +72,17 @@ int main() {
         cout << "norm: " << (optimizer.norm2(tmpConns)) << " \tsum: " << sum << "\n";
     }
     for (int i = 0; i<=320; i+=5) {
-        float tmpthr = throughputForSingleConn(i); 
+        float tmpthr = throughputForSingleConn(i);
         cout << "n: " << i << "\tthr: " << tmpthr << "\n";
     }
 
-    Pair singlePair("a", "b"); 
+    Pair singlePair("a", "b");
     optimizer.clearConditions();
-    int n0 = 10; 
+    int n0 = 10;
     // PairState singleState(0, throughputForSingleConn(n0), 0, 0, 0, n0, 0, 0, 0);
-    // std::map<Pair, PairState> testState; 
-    // testState.insert(std::pair<Pair, PairState>(singlePair, singleState)); 
-    // std::map<Pair, int> optDecision; 
+    // std::map<Pair, PairState> testState;
+    // testState.insert(std::pair<Pair, PairState>(singlePair, singleState));
+    // std::map<Pair, int> optDecision;
     // for (int i = 0; i<20; i++) {
     //     optimizer.step(testState, optDecision);
     //     cout << "actives: " << testState[singlePair].activeCount << "\tthr: " << testState[singlePair].throughput << "\tdecision: " << optDecision[singlePair] << std::endl;
@@ -91,13 +91,13 @@ int main() {
 
     //     cout << std::endl << std::endl << std::endl;
     // }
- 
-    optimizer = TCNOptimizer(); 
+
+    optimizer = TCNOptimizer();
     PairState singleState2(0, throughputForSingleConn(n0), 0, 0, 0, n0, 0, 0, 0);
-    std::map<Pair, PairState> testState2; 
-    testState2.insert(std::pair<Pair, PairState>(singlePair, singleState2)); 
+    std::map<Pair, PairState> testState2;
+    testState2.insert(std::pair<Pair, PairState>(singlePair, singleState2));
     optimizer.setConditionForPair(singlePair, float(5*pow(2, 30)));
-    std::map<Pair, int> optDecision2; 
+    std::map<Pair, int> optDecision2;
     for (int i = 0; i<1000; i++) {
         optimizer.step(testState2, optDecision2);
         cout << std::endl << std::endl <<  "actives: " << testState2[singlePair].activeCount << "\tthr: " << testState2[singlePair].throughput << "\tdecision: " << optDecision2[singlePair] << std::endl << std::endl << std::endl;

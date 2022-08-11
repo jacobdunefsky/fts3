@@ -46,6 +46,7 @@ using namespace fts3::config;
 #define FTS3_CONFIG_SERVERCONFIG_MED_SUCCESS_RATE_DEFAULT 98
 #define FTS3_CONFIG_SERVERCONFIG_LOW_SUCCESS_RATE_DEFAULT 97
 #define FTS3_CONFIG_SERVERCONFIG_BASE_SUCCESS_RATE_DEFAULT 96
+#define FTS3_CONFIG_SERVERCONFIG_TCN_PENALTY_METHOD_DEFAULT "linear"
 /* ---------------------------------------------------------------------- */
 
 po::options_description ServerConfigReader::_defineGenericOptions()
@@ -492,6 +493,11 @@ po::options_description ServerConfigReader::_defineConfigOptions()
         "EnableTCNOptimizer",
         po::value<std::string>( &(_vars["EnableTCNOptimizer"]) )->default_value("false"),
         "Enable control loop of TCN optimizer (Optimizer must be enabled first)"
+    )
+    (
+        "TCNPenaltyMethod",
+        po::value<std::string>( &(_vars["TCNPenaltyMethod"]) )->default_value(FTS3_CONFIG_SERVERCONFIG_TCN_PENALTY_METHOD_DEFAULT),
+        "Set penalty method used by TCN optimizer (EnableTCNOptimizer must be enabled first)"
     )
     ;
 

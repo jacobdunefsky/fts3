@@ -4,12 +4,12 @@
 class TCNOptimizer {
 
     private:
-        int stepCount; 
-        float alpha; 
+        int stepCount;
+        float alpha;
         int maxMagnitudeAlphaDecay;
         float eta;
         float omega;
-        int minOpt; 
+        int minOpt;
         int maxOpt;
         float maxExplorationProbability;
         float minExplorationProbability;
@@ -17,28 +17,29 @@ class TCNOptimizer {
         int decayStopLimit;
         int lastActiveChange;
         float permutationStd;
-        float explorationDeclineCoeff; 
+        float explorationDeclineCoeff;
+        std::string penaltyMethod;
         std::map<Pair, double> gradients;
         std::map<Pair, double> momentums;
         //std::map<Pair, PairState> states;
         std::map<Pair, float> conditions;
         std::map<Pair, PairState> lastState;
-        std::set<Pair> activePipes; 
+        std::set<Pair> activePipes;
         unsigned seed;
         std::default_random_engine generator;
         bool started;
 
     protected:
-        float explorationProbability(); 
+        float explorationProbability();
 
         //decides to wether take a random exploration or follow the
         //momentum
         bool explorationDecision();
-        
+
         void gradientEstimate(std::map<Pair, PairState> &current);
 
         bool listsAreEqual(std::set<Pair>& lhs, std::map<Pair, PairState>& rhs, std::set<Pair>& rhsSet);
-        
+
         void randomPermutation(std::map<Pair, PairState>& activePairs, std::map<Pair, int>& permutations);
 
         void randomStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions);
@@ -49,14 +50,17 @@ class TCNOptimizer {
 
         void gradientStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions);
 
-        // float barrierPartialDerivative(const Pair &pair, const PairState &state);
+        float penaltyValue(float barrier);
+
+        float networkBarrier(PathConstraints pc, std::map<Pair, PairState> &conns);
 
         float barrierValue(const Pair &pair, const PairState &state);
 
         float aggregatedBarrierPenalty(std::map<Pair, PairState> &conns);
 
     public:
-        TCNOptimizer(float alpha = 1e-9,
+        TCNOptimizer(std::string penaltyMethod = "linear",
+            float alpha = 1e-9,
             int maxMagnitudeAlphaDecay = 1,
             float eta = 0.9,
             float omega = 2,
@@ -78,7 +82,7 @@ class TCNOptimizer {
         float objective(std::map<Pair, PairState> &connStates);
 
         void step(std::map<Pair, PairState> &activeTCNPipes, std::map<Pair, int> &decisions);
-        
+
         float getUtility(std::map<Pair, PairState> &connStates);
 
         void setConditionForPair(Pair pair, float limit);
