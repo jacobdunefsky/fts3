@@ -6,6 +6,8 @@
 using std::cout;
 using std::endl;
 
+using namespace alto;
+
 int
 main(int argc, char **argv)
 {

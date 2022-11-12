@@ -4,27 +4,18 @@
 #include <cstdio>
 #include <iostream>
 #include <sstream>
-#include <curl/curl.h>
 #include <map>
 #include <list>
-#include <cstring>
 #include <string>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <regex>
+#include <vector>
 #include "multipart_parser.h"
-#include "json/json.h"
 
 using std::map;
 using std::pair;
-using std::make_pair;
 using std::string;
-using std::cout;
-using std::endl;
-using std::regex;
-using std::smatch;
-using std::regex_search;
-using std::stringstream;
+using std::vector;
+
+namespace alto {
 
 struct PartMessage {
   std::map<std::string, std::string> headers;
@@ -98,10 +89,11 @@ struct EndpointFlow
   std::list<std::string> dsts;
 };
 
-std::string build_path_vector_request(std::list<EndpointFlow> flows, std::list<std::string> props);
+std::string build_path_vector_request(std::list<alto::EndpointFlow> flows, std::list<std::string> props);
 
-PathConstraints get_path_constraints(char *uri, std::list<EndpointFlow> flows, std::list<std::string> props);
+PathConstraints get_path_constraints(const char *uri, std::list<EndpointFlow> flows, std::list<std::string> props);
 
 void dump_path_constraints(const PathConstraints & pc);
 
+}
 #endif

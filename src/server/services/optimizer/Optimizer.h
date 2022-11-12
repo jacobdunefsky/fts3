@@ -34,6 +34,7 @@
 #include <msg-bus/producer.h>
 
 #include "common/Uri.h"
+#include "alto/alto_client.hpp"
 
 
 namespace fts3 {

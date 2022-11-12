@@ -1,6 +1,7 @@
 #ifndef TCN_OPTIMIZER_H
 #define TCN_OPTIMIZER_H
 
+
 class TCNOptimizer {
 
     private:
@@ -52,7 +53,7 @@ class TCNOptimizer {
 
         float penaltyValue(float barrier);
 
-        float networkBarrier(PathConstraints pc, std::map<Pair, PairState> &conns);
+        float networkBarrier(alto::PathConstraints pc, std::map<Pair, PairState> &conns);
 
         float barrierValue(const Pair &pair, const PairState &state);
 

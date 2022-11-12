@@ -9,9 +9,9 @@
 #include <string>
 
 #include "Optimizer.h"
-#include "alto/alto_client.hpp"
 
 using namespace std;
+using namespace alto;
 
 namespace fts3 {
 namespace optimizer {
@@ -261,14 +261,13 @@ float TCNOptimizer::barrierValue(const Pair &pair, const PairState &state)
 float TCNOptimizer::aggregatedBarrierPenalty(std::map<Pair, PairState> &conns)
 {
     float diff = 0.0f;
-    std::map<Pair, float>::iterator it;
 
-    for (it = conditions.begin(); it != conditions.end(); it++) {
+    for (auto it = conditions.begin(); it != conditions.end(); it++) {
         diff += barrierValue(it->first, conns[it->first]);
     }
 
     std::list<EndpointFlow> flows;
-    for (it = conns.begin(); it != conns.end(); it++) {
+    for (auto it = conns.begin(); it != conns.end(); it++) {
         auto pair = it->first;
         EndpointFlow flow;
         flow.srcs.push_back(pair.source);
@@ -277,9 +276,9 @@ float TCNOptimizer::aggregatedBarrierPenalty(std::map<Pair, PairState> &conns)
     }
 
     std::list<std::string> props;
-    props.push_back("bandwidth")
+    props.push_back("bandwidth");
 
-    PathConstraints pc = get_path_constraints(PATH_VECTOR_URI, flows, props);
+    PathConstraints pc = get_path_constraints(PATH_VECTOR_URI.c_str(), flows, props);
     diff += networkBarrier(pc, conns);
 
     return diff;

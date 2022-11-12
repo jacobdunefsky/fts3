@@ -2,13 +2,11 @@
 #include <iostream>
 #include <sstream>
 #include <curl/curl.h>
-#include <map>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <cstring>
-#include <string>
 #include <boost/regex.hpp>
 #include "multipart_parser.h"
 #include "alto_client.hpp"
@@ -18,12 +16,13 @@ using std::map;
 using std::pair;
 using std::make_pair;
 using std::string;
+using std::vector;
 using std::cout;
 using std::endl;
-using std::regex;
-using std::smatch;
-using std::regex_search;
 using std::stringstream;
+
+
+namespace alto {
 
 //
 // Get IP address by DNS lookup
@@ -513,7 +512,7 @@ build_path_constraints(const PathVector & pv, PathConstraints & pc)
 }
 
 
-PathConstraints get_path_constraints(char *uri, std::list<EndpointFlow> flows, std::list<std::string> props)
+PathConstraints get_path_constraints(const char *uri, std::list<EndpointFlow> flows, std::list<std::string> props)
 {
   CURL *conn = NULL;
   CURLcode code;
@@ -536,7 +535,7 @@ PathConstraints get_path_constraints(char *uri, std::list<EndpointFlow> flows, s
 
   // Initialize CURL connection
 
-  if (!init(conn, uri, headers, json_body.c_str())) {
+  if (!init(conn, const_cast<char*>(uri), headers, json_body.c_str())) {
     fprintf(stderr, "Connection initializion failed\n");
     return pc;
   }
@@ -584,3 +583,4 @@ PathConstraints get_path_constraints(char *uri, std::list<EndpointFlow> flows, s
   return pc;
 }
 
+}
