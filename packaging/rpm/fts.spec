@@ -53,6 +53,7 @@ BuildRequires:  openldap-devel
 BuildRequires:  protobuf-devel
 BuildRequires:  pugixml-devel
 BuildRequires:  voms-devel
+BuildRequires:  jsoncpp-devel
 BuildRequires:  checkpolicy, selinux-policy-devel, selinux-policy-doc
 %if %systemd
 BuildRequires:	systemd
@@ -91,6 +92,7 @@ Requires: gfal2-plugin-http%{?_isa} >= 2.21.0
 Requires: gfal2-plugin-srm%{?_isa} >= 2.21.0
 #Requires: gfal2-plugin-xrootd%{?_isa}
 Requires: gridsite >= 1.7.25
+Requires: jsoncpp >= 0.10.5
 
 %if %systemd
 Requires(post):		systemd
@@ -219,6 +221,7 @@ fi
 mkdir build
 cd build
 %cmake -DSERVERBUILD=ON -DMYSQLBUILD=ON -DCLIENTBUILD=ON \
+    -DALTOBUILD=ON \
     -DTESTBUILD=ON \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_INSTALL_PREFIX='' \
@@ -485,6 +488,10 @@ fi
 %{_bindir}/fts-*
 %{_mandir}/man1/fts*
 
+# TODO: Move to a separated package later
+%{_bindir}/alto_client
+%{_mandir}/man8/alto_client.8.gz
+
 %files libs
 %{_libdir}/libfts_common.so*
 %{_libdir}/libfts_config.so*
@@ -496,6 +503,9 @@ fi
 %{_libdir}/libfts_cli_common.so*
 %{_libdir}/libfts_msg_bus.so*
 %{_libdir}/libfts_url_copy.so*
+
+# TODO: Move to a separated package later
+%{_libdir}/libalto_client_common.so*
 %doc README.md
 %doc LICENSE
 
