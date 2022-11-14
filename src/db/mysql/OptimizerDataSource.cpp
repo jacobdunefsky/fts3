@@ -267,6 +267,64 @@ public:
             *filesizeStdDev = sqrt(deviations / filesizes.size());
         }
     }
+    
+    // this function is similar to getThroughputInfo, but it only returns the
+	// total number of bytes transfered among any files that were active
+	// at any point between now and windowStart
+	// additionally, it does not normalize bytes by the amount of time that the
+	// file spent in the current window
+	// this is used in the time multiplexing code in the optimizer
+	
+	int64_t getTransferredInfo(const Pair &pair, time_t windowStart)
+    {
+        static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+        *throughput = *filesizeAvg = *filesizeStdDev = 0;
+
+        time_t now = time(NULL);
+		time_t total_seconds = now-windowStart;
+
+        soci::rowset<soci::row> transfers = (sql.prepare <<
+        "SELECT start_time, finish_time, transferred, filesize "
+        " FROM t_file "
+        " WHERE "
+        "   source_se = :sourceSe AND dest_se = :destSe AND file_state = 'ACTIVE' "
+        "UNION ALL "
+        "SELECT start_time, finish_time, transferred, filesize "
+        " FROM t_file USE INDEX(idx_finish_time)"
+        " WHERE "
+        "   source_se = :sourceSe AND dest_se = :destSe "
+        "   AND file_state IN ('FINISHED', 'ARCHIVING') AND finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval SECOND)",
+        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"),
+        soci::use(totalSeconds, "interval"));
+
+        int64_t totalBytes = 0;
+        std::vector<int64_t> filesizes;
+
+        for (auto j = transfers.begin(); j != transfers.end(); ++j) {
+            auto transferred = j->get<long long>("transferred", 0.0);
+            auto filesize = j->get<long long>("filesize", 0.0);
+            auto starttm = j->get<struct tm>("start_time");
+            auto endtm = j->get<struct tm>("finish_time", nulltm);
+
+            time_t start = timegm(&starttm);
+            time_t end = timegm(&endtm);
+            time_t periodInWindow = 0;
+            double bytesInWindow = 0;
+
+            // Not finish information
+            if (endtm.tm_year <= 0) {
+				bytesInWindow = transferred
+            }
+            // Finished
+            else {
+				bytesInWindow = filesize;
+            }
+
+            totalBytes += bytesInWindow;
+        }
+		return totalBytes;
+    }
 
     time_t getAverageDuration(const Pair &pair, const boost::posix_time::time_duration &interval) {
         double avgDuration = 0.0;
