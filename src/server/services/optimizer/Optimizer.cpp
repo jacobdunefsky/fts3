@@ -185,6 +185,11 @@ void Optimizer::run(void)
         else {
             decisionVector = runTCNOptimizer(aggregatedPairState);
         }
+	    
+	    for(auto sleepingPipe = sleepingPipes.begin(); sleepingPipe != sleepingPipes.end(); sleepingPipe++){
+		// set decision for sleeping pipes to zero
+		decisionVector[*sleepingPipe] = 0;    
+	    }
 
         boost::timer::cpu_times const elapsed(timer.elapsed());
         FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Global time elapsed: " << elapsed.system << ", " << elapsed.user << commit;
