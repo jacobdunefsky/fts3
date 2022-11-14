@@ -38,7 +38,7 @@ Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCN
     optimizerSteadyInterval(boost::posix_time::seconds(60)), maxNumberOfStreams(10),
     maxSuccessRate(100), lowSuccessRate(97), baseSuccessRate(96),
     decreaseStepSize(1), increaseStepSize(1), increaseAggressiveStepSize(2),
-    emaAlpha(EMA_ALPHA), resourceIntervalSize(10), resourceIntervalStart(time(NULL))
+    emaAlpha(EMA_ALPHA), resourceIntervalSize(30), resourceIntervalStart(time(NULL))
 {
 }
 
@@ -158,7 +158,7 @@ void Optimizer::run(void)
                     int64_t curTransferred = dataSource->getTransferredInfo(*i, resourceIntervalStart) - initialTransferred[*i];
                     // TODO: get resource limits from database
                     // uint64_t bwLimit = dataSource->getBwLimitForPipe(*i);
-                    uint64_t bwLimit = 20;
+                    uint64_t bwLimit = 50 * 1024 * 1024;
                     if (curTransferred > resourceIntervalSize * bwLimit && bwLimit != 0) {
                         // we've gone over our bandwidth limit
                         // add to the set of sleeping pipes
@@ -166,10 +166,10 @@ void Optimizer::run(void)
                     }
                 }
                 // if our pipe isn't sleeping, then send it to the optimizer
-                auto f = sleepingPipes.find(*i);
-                if (f == sleepingPipes.end()) {
-                    aggregatedPairState[*i] = getPairState(*i);
-                }
+                // auto f = sleepingPipes.find(*i);
+                // if (f == sleepingPipes.end()) {
+                //     aggregatedPairState[*i] = getPairState(*i);
+                // }
             }
         }
 
@@ -185,11 +185,11 @@ void Optimizer::run(void)
         else {
             decisionVector = runTCNOptimizer(aggregatedPairState);
         }
-	    
-	    for(auto sleepingPipe = sleepingPipes.begin(); sleepingPipe != sleepingPipes.end(); sleepingPipe++){
-		// set decision for sleeping pipes to zero
-		decisionVector[*sleepingPipe] = 0;    
-	    }
+
+        // for(auto sleepingPipe = sleepingPipes.begin(); sleepingPipe != sleepingPipes.end(); sleepingPipe++){
+            // set decision for sleeping pipes to zero
+            // decisionVector[*sleepingPipe] = 0;
+        // }
 
         boost::timer::cpu_times const elapsed(timer.elapsed());
         FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Global time elapsed: " << elapsed.system << ", " << elapsed.user << commit;
@@ -246,6 +246,14 @@ std::map<Pair, DecisionState> Optimizer::runNaiveTCNOptimizer(std::map<Pair, Pai
         int decision = 0;
         std::stringstream rationale;
 
+        bool sleeping = false;
+
+        // Check if the pipe is sleeping
+        auto f = sleepingPipes.find(pair);
+        if (f != sleepingPipes.end()) {
+            sleeping = true;
+        }
+
         // Optimizer working values
         Range range;
         StorageLimits limits;
@@ -256,7 +264,12 @@ std::map<Pair, DecisionState> Optimizer::runNaiveTCNOptimizer(std::map<Pair, Pai
         DecisionState decisionInfo(current);
 
         // There is no value yet. In this case, pick the high value if configured, mid-range otherwise.
-        if (lastDecision == 0) {
+        if (sleeping) {
+            rationale << "Sleep because of time multiplexing. Not start any new transfers";
+            decisionInfo.decision = 0;
+            decisionInfo.diff = 0 - lastDecision;
+            decisionInfo.rationale = rationale.str();
+        } else if (lastDecision == 0) {
             if (range.specific) {
                 decision = range.max;
                 rationale << "No information. Use configured range max.";

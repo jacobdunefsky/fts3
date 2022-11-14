@@ -105,14 +105,18 @@ void OptimizerService::runService()
     );
 
     // TODO: read parameters from configuration
-    TCNOptimizer tcnOptimizer(
-        config::ServerConfig::instance().get<std::string>("TCNPenaltyMethod")
-    );
+    TCNOptimizer *tcnOptimizer = NULL;
+    if (config::ServerConfig::instance().get<bool>("EnableTCNOptimizer")) {
+        TCNOptimizer tcnOptimizerInstance(
+            config::ServerConfig::instance().get<std::string>("TCNPenaltyMethod")
+        );
+        tcnOptimizer = &tcnOptimizerInstance;
+    }
 
     Optimizer optimizer(
         db::DBSingleton::instance().getDBObjectInstance()->getOptimizerDataSource(),
         &optimizerCallbacks,
-        &tcnOptimizer
+        tcnOptimizer
     );
     optimizer.setSteadyInterval(optimizerSteadyInterval);
     optimizer.setMaxNumberOfStreams(maxNumberOfStreams);
