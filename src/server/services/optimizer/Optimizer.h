@@ -190,6 +190,20 @@ protected:
     // Member for TCN optimizer specific
     //
     TCNOptimizer *tcnOptimizer;
+    
+    // time multiplexing stuff
+
+	// size of interval in seconds
+	// TODO: get from config
+	// when we have bandwidth constraints, they refer to average
+	// throughput as measured over this interval
+	time_t resourceIntervalSize;
+	// pipes that are currently not scheduling transfers, in order to limit
+	// throughput (time multiplexing)
+	std::set<Pair> sleepingPipes;
+	time_t resourceIntervalStart; // beginning of the current resource interval
+	// amount that each pipe has transferred at the beginning of the interval
+	set::map<Pair, int64_t> initialTransferred;
 
 
     // Run the optimization algorithm for the number of connections.
