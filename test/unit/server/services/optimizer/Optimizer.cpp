@@ -173,6 +173,29 @@ public:
         return;
     }
 
+    int64_t getTransferredInfo(const Pair &pair, time_t windowStart) {
+
+        auto tsi = transferStore.find(pair);
+        if (tsi == transferStore.end()) {
+            return 0;
+        }
+
+        auto &transfers = tsi->second;
+
+        time_t now = time(NULL);
+        time_t total_seconds = now - windowStart;
+
+        int64_t totalSize = 0;
+
+        for (auto i = transfers.begin(); i != transfers.end(); ++i) {
+            if (i->state == "ACTIVE" || (i->state == "FINISHED" && i->end >= windowStart)) {
+                totalSize += i->filesize;
+            }
+        }
+
+        return totalSize;
+    }
+
     time_t getAverageDuration(const Pair &pair, const boost::posix_time::time_duration &interval) {
         auto tsi = transferStore.find(pair);
         if (tsi == transferStore.end()) {
