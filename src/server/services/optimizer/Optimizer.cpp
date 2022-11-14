@@ -24,6 +24,8 @@
 #include "common/Exceptions.h"
 #include "common/Logger.h"
 
+#include <time.h>
+
 using namespace fts3::common;
 using namespace fts3::config;
 
