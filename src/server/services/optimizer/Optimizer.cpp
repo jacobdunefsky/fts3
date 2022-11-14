@@ -36,7 +36,7 @@ Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCN
     optimizerSteadyInterval(boost::posix_time::seconds(60)), maxNumberOfStreams(10),
     maxSuccessRate(100), lowSuccessRate(97), baseSuccessRate(96),
     decreaseStepSize(1), increaseStepSize(1), increaseAggressiveStepSize(2),
-    emaAlpha(EMA_ALPHA)
+    emaAlpha(EMA_ALPHA), resourceIntervalSize(10), resourceIntervalStart(time(NULL))
 {
 }
 
@@ -122,6 +122,18 @@ void Optimizer::run(void)
 {
     FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer run" << commit;
     try {
+		// take care of current resource interval
+		time_t now = time(NULL);
+		bool newInterval = false;
+		if(now - resourceIntervalStart > resourceIntervalSize) {
+			// we have ended our resource interval
+			// time to start a new one
+			newInterval = true;
+			sleepingPipes.clear();
+			initialTransferred.clear();
+			resourceIntervalStart = now;
+		}
+
         std::list<Pair> pairs = dataSource->getActivePairs();
         // Make sure the order is always the same
         // See FTS-1094
@@ -135,7 +147,27 @@ void Optimizer::run(void)
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer mode of " << *i << ": " << optMode << commit;
             if (optMode == kOptimizerAggregated) {
                 FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
-                aggregatedPairState[*i] = getPairState(*i);
+
+				// see if it's time for this pipe to stop transferring
+				// (in order to respect bandwidth limits)
+				if(newInterval){
+					initialTransferred[*i] = dataSource->getTransferredInfo(*i, resourceIntervalStart);
+				}
+				else {
+					int64_t curTransferred = dataSource->getTransferredInfo(*i, resourceIntervalStart) - initialTransferred[*i];
+					// TODO: get resource limits from database
+					//uint64_t bwLimit = dataSource->getBwLimitForPipe(*i);
+					uint64_t bwLimit = 20;
+					if(curTransferred > resourceIntervalSize * bwLimit && bwLimit != 0){
+						// we've gone over our bandwidth limit
+						// add to the set of sleeping pipes
+						sleepingPipes.add(*i);
+					}
+				}
+				// if our pipe isn't sleeping, then send it to the optimizer
+				if(auto f = sleepingPipes.find(*i); f == example.end()) {
+					aggregatedPairState[*i] = getPairState(*i);
+				}
             }
         }
 
