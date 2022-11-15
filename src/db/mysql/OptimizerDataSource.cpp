@@ -36,11 +36,11 @@ static void setNewOptimizerValue(soci::session &sql,
 {
     sql.begin();
     sql <<
-        "INSERT INTO t_optimizer (source_se, dest_se, active, ema, datetime) "
-        "VALUES (:source, :dest, :active, :ema, UTC_TIMESTAMP()) "
+        "INSERT INTO t_optimizer (source_se, dest_se, vo_name, active, ema, datetime) "
+        "VALUES (:source, :dest, :vo_name, :active, :ema, UTC_TIMESTAMP()) "
         "ON DUPLICATE KEY UPDATE "
         "   active = :active, ema = :ema, datetime = UTC_TIMESTAMP()",
-        soci::use(pair.source, "source"), soci::use(pair.destination, "dest"),
+        soci::use(pair.source, "source"), soci::use(pair.destination, "dest"), soci::use(pair.vo_name, "vo_name"),
         soci::use(optimizerDecision, "active"), soci::use(ema, "ema");
     sql.commit();
 }
@@ -53,18 +53,18 @@ static void updateOptimizerEvolution(soci::session &sql,
     try {
         sql.begin();
         sql << " INSERT INTO t_optimizer_evolution "
-            " (datetime, source_se, dest_se, "
+            " (datetime, source_se, dest_se, vo_name"
             "  ema, active, throughput, success, "
             "  filesize_avg, filesize_stddev, "
             "  actual_active, queue_size, "
             "  rationale, diff) "
             " VALUES "
-            " (UTC_TIMESTAMP(), :source, :dest, "
+            " (UTC_TIMESTAMP(), :source, :dest, :vo_name"
             "  :ema, :active, :throughput, :success, "
             "  :filesize_avg, :filesize_stddev, "
             "  :actual_active, :queue_size, "
             "  :rationale, :diff)",
-            soci::use(pair.source), soci::use(pair.destination),
+            soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo_name),
             soci::use(newState.ema), soci::use(active), soci::use(newState.throughput), soci::use(newState.successRate),
             soci::use(newState.filesizeAvg), soci::use(newState.filesizeStdDev),
             soci::use(newState.activeCount), soci::use(newState.queueSize),
@@ -89,8 +89,8 @@ static int getCountInState(soci::session &sql, const Pair &pair, const std::stri
     int count = 0;
 
     sql << "SELECT count(*) FROM t_file "
-    "WHERE source_se = :source AND dest_se = :dest_se AND file_state = :state",
-    soci::use(pair.source), soci::use(pair.destination), soci::use(state), soci::into(count);
+    "WHERE source_se = :source AND dest_se = :dest_se AND vo_name = :vo_name AND file_state = :state",
+    soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo_name), soci::use(state), soci::into(count);
 
     return count;
 }
@@ -112,7 +112,7 @@ public:
         std::list<Pair> result;
 
         soci::rowset<soci::row> rs = (sql.prepare <<
-            "SELECT DISTINCT source_se, dest_se "
+            "SELECT DISTINCT source_se, dest_se, vo_name "
             "FROM t_file "
             "WHERE file_state IN ('ACTIVE', 'SUBMITTED') "
             "GROUP BY source_se, dest_se, file_state "
@@ -120,7 +120,7 @@ public:
         );
 
         for (auto i = rs.begin(); i != rs.end(); ++i) {
-            result.push_back(Pair(i->get<std::string>("source_se"), i->get<std::string>("dest_se")));
+            result.push_back(Pair(i->get<std::string>("source_se"), i->get<std::string>("dest_se"), i->get<std::string>("vo_name")));
         }
 
         return result;
@@ -131,6 +131,7 @@ public:
         return getOptimizerModeInner(sql, source, dest);
     }
 
+	// TODO: update to use vo_name? 
     void getPairLimits(const Pair &pair, Range *range, StorageLimits *limits) {
         soci::indicator nullIndicator;
 
@@ -177,8 +178,8 @@ public:
         int currentActive = 0;
 
         sql << "SELECT active FROM t_optimizer "
-            "WHERE source_se = :source AND dest_se = :dest_se",
-            soci::use(pair.source),soci::use(pair.destination),
+            "WHERE source_se = :source AND dest_se = :dest_se AND vo_name = :vo_name",
+            soci::use(pair.source),soci::use(pair.destination),soci::use(pair.vo_name),
             soci::into(currentActive, isCurrentNull);
 
         if (isCurrentNull == soci::i_null) {
@@ -186,6 +187,65 @@ public:
         }
         return currentActive;
     }
+
+	// this function is similar to getThroughputInfo, but it only returns the
+	// total number of bytes transfered among any files that were active
+	// at any point between now and windowStart
+	// additionally, it does not normalize bytes by the amount of time that the
+	// file spent in the current window
+	// this is used in the time multiplexing code in the optimizer
+	
+	int64_t getTransferredInfo(const Pair &pair, time_t windowStart)
+    {
+        static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+        *throughput = *filesizeAvg = *filesizeStdDev = 0;
+
+        time_t now = time(NULL);
+		time_t total_seconds = now-windowStart;
+
+        soci::rowset<soci::row> transfers = (sql.prepare <<
+        "SELECT start_time, finish_time, transferred, filesize "
+        " FROM t_file "
+        " WHERE "
+        "   source_se = :sourceSe AND dest_se = :destSe AND vo_name = :vo_name AND file_state = 'ACTIVE' "
+        "UNION ALL "
+        "SELECT start_time, finish_time, transferred, filesize "
+        " FROM t_file USE INDEX(idx_finish_time)"
+        " WHERE "
+        "   source_se = :sourceSe AND dest_se = :destSe AND vo_name = :vo_name "
+        "   AND file_state IN ('FINISHED', 'ARCHIVING') AND finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval SECOND)",
+        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"), soci::use(pair.vo_name, "vo_name"),
+        soci::use(totalSeconds, "interval"));
+
+        int64_t totalBytes = 0;
+        std::vector<int64_t> filesizes;
+
+        for (auto j = transfers.begin(); j != transfers.end(); ++j) {
+            auto transferred = j->get<long long>("transferred", 0.0);
+            auto filesize = j->get<long long>("filesize", 0.0);
+            auto starttm = j->get<struct tm>("start_time");
+            auto endtm = j->get<struct tm>("finish_time", nulltm);
+
+            time_t start = timegm(&starttm);
+            time_t end = timegm(&endtm);
+            time_t periodInWindow = 0;
+            double bytesInWindow = 0;
+
+            // Not finish information
+            if (endtm.tm_year <= 0) {
+				bytesInWindow = transferred
+            }
+            // Finished
+            else {
+				bytesInWindow = filesize;
+            }
+
+            totalBytes += bytesInWindow;
+        }
+		return totalBytes;
+    }
+
 
     void getThroughputInfo(const Pair &pair, const boost::posix_time::time_duration &interval,
         double *throughput, double *filesizeAvg, double *filesizeStdDev)
@@ -201,14 +261,14 @@ public:
         "SELECT start_time, finish_time, transferred, filesize "
         " FROM t_file "
         " WHERE "
-        "   source_se = :sourceSe AND dest_se = :destSe AND file_state = 'ACTIVE' "
+        "   source_se = :sourceSe AND dest_se = :destSe AND vo_name = :vo_name AND file_state = 'ACTIVE' "
         "UNION ALL "
         "SELECT start_time, finish_time, transferred, filesize "
         " FROM t_file USE INDEX(idx_finish_time)"
         " WHERE "
-        "   source_se = :sourceSe AND dest_se = :destSe "
+        "   source_se = :sourceSe AND dest_se = :destSe AND vo_name = :vo_name"
         "   AND file_state IN ('FINISHED', 'ARCHIVING') AND finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval SECOND)",
-        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"),
+        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"), soci::use(pair.vo_name, "vo_name"),
         soci::use(interval.total_seconds(), "interval"));
 
         int64_t totalBytes = 0;
@@ -268,77 +328,15 @@ public:
         }
     }
 
-    // this function is similar to getThroughputInfo, but it only returns the
-    // total number of bytes transfered among any files that were active
-    // at any point between now and windowStart
-    // additionally, it does not normalize bytes by the amount of time that the
-    // file spent in the current window
-    // this is used in the time multiplexing code in the optimizer
-
-    int64_t getTransferredInfo(const Pair &pair, time_t windowStart) {
-        static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-        // *throughput = *filesizeAvg = *filesizeStdDev = 0;
-
-        time_t now = time(NULL);
-        time_t total_seconds = now - windowStart;
-
-        soci::rowset<soci::row> transfers =
-            (sql.prepare
-                 << "SELECT start_time, finish_time, transferred, filesize "
-                    " FROM t_file "
-                    " WHERE "
-                    "   source_se = :sourceSe AND dest_se = :destSe AND "
-                    "file_state = 'ACTIVE' "
-                    "UNION ALL "
-                    "SELECT start_time, finish_time, transferred, filesize "
-                    " FROM t_file USE INDEX(idx_finish_time)"
-                    " WHERE "
-                    "   source_se = :sourceSe AND dest_se = :destSe "
-                    "   AND file_state IN ('FINISHED', 'ARCHIVING') AND "
-                    "finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval "
-                    "SECOND)",
-             soci::use(pair.source, "sourceSe"),
-             soci::use(pair.destination, "destSe"),
-             soci::use(total_seconds, "interval"));
-
-        int64_t totalBytes = 0;
-        std::vector<int64_t> filesizes;
-
-        for (auto j = transfers.begin(); j != transfers.end(); ++j) {
-            auto transferred = j->get<long long>("transferred", 0.0);
-            auto filesize = j->get<long long>("filesize", 0.0);
-            auto starttm = j->get<struct tm>("start_time");
-            auto endtm = j->get<struct tm>("finish_time", nulltm);
-
-            time_t start = timegm(&starttm);
-            time_t end = timegm(&endtm);
-            time_t periodInWindow = 0;
-            double bytesInWindow = 0;
-
-            // Not finish information
-            if (endtm.tm_year <= 0) {
-                bytesInWindow = transferred;
-            }
-            // Finished
-            else {
-                bytesInWindow = filesize;
-            }
-
-            totalBytes += bytesInWindow;
-        }
-        return totalBytes;
-    }
-
     time_t getAverageDuration(const Pair &pair, const boost::posix_time::time_duration &interval) {
         double avgDuration = 0.0;
         soci::indicator isNullAvg = soci::i_ok;
 
         sql << "SELECT AVG(tx_duration) FROM t_file USE INDEX(idx_finish_time)"
-            " WHERE source_se = :source AND dest_se = :dest AND file_state IN ('FINISHED', 'ARCHIVING') AND "
+            " WHERE source_se = :source AND dest_se = :dest AND vo_name = :vo_name AND file_state IN ('FINISHED', 'ARCHIVING') AND "
             "   tx_duration > 0 AND tx_duration IS NOT NULL AND "
             "   finish_time > (UTC_TIMESTAMP() - INTERVAL :interval SECOND) LIMIT 1",
-            soci::use(pair.source), soci::use(pair.destination), soci::use(interval.total_seconds()),
+            soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo_name), soci::use(interval.total_seconds()),
             soci::into(avgDuration, isNullAvg);
 
         return avgDuration;
@@ -349,10 +347,10 @@ public:
         soci::rowset<soci::row> rs = (sql.prepare <<
             "SELECT file_state, retry, current_failures AS recoverable FROM t_file USE INDEX(idx_finish_time)"
             " WHERE "
-            "      source_se = :source AND dest_se = :dst AND "
+            "      source_se = :source AND dest_se = :dst AND vo_name = :vo_name AND  "
             "      finish_time > (UTC_TIMESTAMP() - interval :calculateTimeFrame SECOND) AND "
             "file_state <> 'NOT_USED' ",
-            soci::use(pair.source), soci::use(pair.destination), soci::use(interval.total_seconds())
+            soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo_name), soci::use(interval.total_seconds())
         );
 
         int nFailedLastHour = 0;
@@ -436,8 +434,8 @@ public:
 
         sql << "UPDATE t_optimizer "
                "SET nostreams = :nostreams, datetime = UTC_TIMESTAMP() "
-               "WHERE source_se = :source AND dest_se = :dest",
-            soci::use(pair.source, "source"), soci::use(pair.destination, "dest"),
+               "WHERE source_se = :source AND dest_se = :dest AND vo_name = :vo_name",
+            soci::use(pair.source, "source"), soci::use(pair.destination, "dest"), soci::use(pair.vo_name, "vo_name"),
             soci::use(streams, "nostreams");
 
         sql.commit();
