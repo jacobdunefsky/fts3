@@ -551,15 +551,15 @@ void MySqlAPI::getQueuesWithSessionReusePending(std::vector<QueueId>& queues)
 /// @param source Source storage
 /// @param dest Destination storage
 /// @return Number of running (or scheduled) transfers
-static int getActiveCount(soci::session& sql, const std::string &source, const std::string &dest)
+static int getActiveCount(soci::session& sql, const std::string &source, const std::string &dest, const std::string &voName)
 {
     int activeCount = 0;
 
     //Running Transefers (R+N+Y+H job type)
     sql << "SELECT COUNT(*) FROM t_file f JOIN t_job j ON j.job_id = f.job_id "
-        " WHERE f.source_se = :source_se AND f.dest_se = :dest_se"
+        " WHERE f.source_se = :source_se AND f.dest_se = :dest_se AND f.vo_name = :voName"
         " AND f.file_state = 'ACTIVE'",
-        soci::use(source), soci::use(dest),
+        soci::use(source), soci::use(dest), soci::use(voName),
         soci::into(activeCount);
 
     return activeCount;
@@ -582,12 +582,13 @@ void MySqlAPI::getReadyTransfers(const std::vector<QueueId>& queues,
             soci::indicator maxActiveNull = soci::i_ok;
             int filesNum = 10;
 
-            int activeCount = getActiveCount(sql, it->sourceSe, it->destSe);
+            int activeCount = getActiveCount(sql, it->sourceSe, it->destSe, it->voName);
 
             // How many can we run
-            sql << "SELECT active FROM t_optimizer WHERE source_se = :source_se AND dest_se = :dest_se",
+            sql << "SELECT active FROM t_optimizer WHERE source_se = :source_se AND dest_se = :dest_se AND vo_name = :vo_name",
                    soci::use(it->sourceSe),
                    soci::use(it->destSe),
+				   soci::use(it->voName),
                    soci::into(maxActive, maxActiveNull);
 
             // Calculate how many tops we should pick
