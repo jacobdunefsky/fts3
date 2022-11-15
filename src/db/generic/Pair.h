@@ -27,9 +27,12 @@
 #include "common/Uri.h"
 
 struct Pair {
-    std::string source, destination;
+    std::string source, destination, vo_name;
 
-    Pair(const std::string &s, const std::string &d): source(s), destination(d) {
+    Pair(const std::string &s, const std::string &d, const std::string &v): source(s), destination(d), vo_name(v) {
+    }
+
+	Pair(const std::string &s, const std::string &d, const std::string &v): source(s), destination(d), vo_name("") {
     }
 
     bool isLanTransfer() const {
@@ -39,15 +42,15 @@ struct Pair {
 
 // Required so it can be used as a key on a std::map
 inline bool operator < (const Pair &a, const Pair &b) {
-    return a.source < b.source || (a.source == b.source && a.destination < b.destination);
+    return a.source < b.source || (a.source == b.source && a.destination < b.destination) || (a.source == b.source && a.destination == b.destination && a.vo_name < b.vo_name) ;
 }
 
 inline bool operator == (const Pair &a, const Pair &b) {
-  return a.source == b.source && a.destination == b.destination;
+  return a.source == b.source && a.destination == b.destination && a.vo_name == b.vo_name;
 }
 
 inline std::ostream& operator << (std::ostream &os, const Pair &pair) {
-    return (os << pair.source << " => " << pair.destination);
+    return (os << pair.source << " => " << pair.destination << " (" << pair.vo_name << ")");
 }
 
 
