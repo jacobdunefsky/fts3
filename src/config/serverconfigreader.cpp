@@ -500,12 +500,12 @@ po::options_description ServerConfigReader::_defineConfigOptions()
         "Set penalty method used by TCN optimizer (EnableTCNOptimizer must be enabled first)"
     )
     (   "TimeMultiplexingQoSInterval",
-         po::value<int>()->default_value(30),
-         "Set QoS interval for time multiplexing in optimizer"
+        po::value<std::string>( &(_vars["TimeMultiplexingQoSInterval"]) )->default_value("30"),
+        "Set QoS interval for time multiplexing in optimizer"
     )
     (   "TCNDefaultBwLimit",
-         po::value<int>()->default_value(25),
-         "Set default resource control limit for TCN optimizer"
+        po::value<std::string>( &(_vars["TCNDefaultBwLimit"]) )->default_value("25"),
+        "Set default resource control limit for TCN optimizer"
     )
     ;
 
