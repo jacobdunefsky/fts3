@@ -33,12 +33,12 @@ namespace fts3 {
 namespace optimizer {
 
 
-Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer, time_t qosInterval, int64_t defaultBwLimit):
+Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer, time_t qosInterval, double defaultBwLimit):
     dataSource(ds), callbacks(callbacks), tcnOptimizer(tcnOptimizer),
     optimizerSteadyInterval(boost::posix_time::seconds(60)), maxNumberOfStreams(10),
     maxSuccessRate(100), lowSuccessRate(97), baseSuccessRate(96),
     decreaseStepSize(1), increaseStepSize(1), increaseAggressiveStepSize(2), defaultBwLimit(defaultBwLimit),
-    emaAlpha(EMA_ALPHA), resourceIntervalSize(qosInterval), resourceIntervalStart(time(NULL))
+    emaAlpha(EMA_ALPHA), qosInterval(qosInterval), qosIntervalStart(time(NULL))
 {
 }
 
@@ -92,7 +92,7 @@ void Optimizer::setEmaAlpha(double alpha)
 }
 
 
-PairState Optimizer::getPairState(const Pair &pair)
+PairState Optimizer::getPairState(const Pair &pair, bool timeMultiplexing, bool newInterval)
 {
     PairState lastState = inMemoryStore[pair];
     PairState current;
@@ -107,8 +107,17 @@ PairState Optimizer::getPairState(const Pair &pair)
     current.activeCount = dataSource->getActive(pair);
     current.queueSize = dataSource->getSubmitted(pair);
 
+    if (timeMultiplexing) {
+        auto start = qosIntervalStart;
+        if (newInterval) {
+            start -= qosInterval;
+        }
+        double curTransferredBytes = dataSource->getTransferredInfo(pair, start);
+        current.throughput = curTransferredBytes / (current.timestamp - start);
+    }
+
     int lastDecision = dataSource->getOptimizerValue(pair);
-    if (lastDecision == 0) {
+    if (lastDecision == 0 && !timeMultiplexing) {
         current.ema = current.throughput;
     }
     else {
@@ -126,14 +135,19 @@ void Optimizer::run(void)
     try {
         // take care of current resource interval
         time_t now = time(NULL);
+        bool timeMultiplexing = false;
+        if (qosInterval > 0) {
+            timeMultiplexing = true;
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing enabled" << commit;
+        }
+
         bool newInterval = false;
-        if (now - resourceIntervalStart > resourceIntervalSize) {
+        if (timeMultiplexing && now - qosIntervalStart > qosInterval) {
             // we have ended our resource interval
             // time to start a new one
             newInterval = true;
             sleepingPipes.clear();
-            initialTransferred.clear();
-            resourceIntervalStart = now;
+            qosIntervalStart = now;
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: new QoS innterval starts" << commit;
         }
 
@@ -151,24 +165,25 @@ void Optimizer::run(void)
             if (optMode == kOptimizerAggregated) {
                 FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
 
+                aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
+
                 // see if it's time for this pipe to stop transferring
                 // (in order to respect bandwidth limits)
-                if (newInterval) {
-                    initialTransferred[*i] = dataSource->getTransferredInfo(*i, resourceIntervalStart);
-                } else {
-                    int64_t curTransferred = dataSource->getTransferredInfo(*i, resourceIntervalStart) - initialTransferred[*i];
+                if (!newInterval) {
                     // TODO: get resource limits from database
                     // uint64_t bwLimit = dataSource->getBwLimitForPipe(*i);
-                    uint64_t bwLimit = defaultBwLimit * 1024 * 1024;
-                    if (curTransferred > resourceIntervalSize * bwLimit && bwLimit != 0) {
+                    double bwLimit = defaultBwLimit / 1024;
+                    double actualMBps = aggregatedPairState[*i].throughput / 1024 / 1024;
+                    if (actualMBps > bwLimit && bwLimit != 0) {
                         // we've gone over our bandwidth limit
                         // add to the set of sleeping pipes
                         sleepingPipes.insert(*i);
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
+                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i
+                            << " (target: " << bwLimit << " MB/s, actual: " << actualMBps << " MB/s) "
+                            << " exceeds resource limit, sleep." << commit;
                     }
                 }
 
-                aggregatedPairState[*i] = getPairState(*i);
             }
         }
 

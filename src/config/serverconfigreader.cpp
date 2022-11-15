@@ -505,7 +505,7 @@ po::options_description ServerConfigReader::_defineConfigOptions()
     )
     (   "TCNDefaultBwLimit",
         po::value<std::string>( &(_vars["TCNDefaultBwLimit"]) )->default_value("25"),
-        "Set default resource control limit for TCN optimizer"
+        "Set default resource control limit for TCN optimizer in KB/s"
     )
     ;
 

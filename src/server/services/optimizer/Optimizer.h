@@ -96,13 +96,15 @@ struct PairState {
     double filesizeAvg, filesizeStdDev;
     // Optimizer last decision
     int connections;
+    // Time-multiplexing througput
+    double tm_throughput;
 
     PairState(): timestamp(0), throughput(0), avgDuration(0), successRate(0), retryCount(0), activeCount(0),
-                 queueSize(0), ema(0), filesizeAvg(0), filesizeStdDev(0), connections(1) {}
+                 queueSize(0), ema(0), filesizeAvg(0), filesizeStdDev(0), connections(1), tm_throughput(0) {}
 
     PairState(time_t ts, double thr, time_t ad, double sr, int rc, int ac, int qs, double ema, int conn):
         timestamp(ts), throughput(thr), avgDuration(ad), successRate(sr), retryCount(rc),
-        activeCount(ac), queueSize(qs), ema(ema), filesizeAvg(0), filesizeStdDev(0), connections(conn) {}
+        activeCount(ac), queueSize(qs), ema(ema), filesizeAvg(0), filesizeStdDev(0), connections(conn), tm_throughput(0) {}
 };
 
 struct DecisionState {
@@ -199,15 +201,13 @@ protected:
     // TODO: get from config
     // when we have bandwidth constraints, they refer to average
     // throughput as measured over this interval
-    time_t resourceIntervalSize;
+    time_t qosInterval;
 
-    int64_t defaultBwLimit;
+    double defaultBwLimit;
     // pipes that are currently not scheduling transfers, in order to limit
     // throughput (time multiplexing)
     std::set<Pair> sleepingPipes;
-    time_t resourceIntervalStart; // beginning of the current resource interval
-    // amount that each pipe has transferred at the beginning of the interval
-    std::map<Pair, int64_t> initialTransferred;
+    time_t qosIntervalStart; // beginning of the current resource interval
 
     // Run the optimization algorithm for the number of connections.
     // Returns true if a decision is stored
@@ -220,7 +220,7 @@ protected:
     void getOptimizerWorkingRange(const Pair &pair, Range *range, StorageLimits *limits);
 
     // Retrieve previous running state of the pair
-    PairState getPairState(const Pair &pair);
+    PairState getPairState(const Pair &pair, bool timeMultiplexing, bool newInterval);
 
     // Updates decision
     void setOptimizerDecision(const Pair &pair, int decision, const PairState &current,
@@ -230,7 +230,7 @@ protected:
     void applyDecisions(std::map<Pair, DecisionState> decisionVector, boost::timer::cpu_timer timer);
 
 public:
-    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer=NULL, time_t qosInterval=30, int64_t defaultBwLimit=25);
+    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer=NULL, time_t qosInterval=30, double defaultBwLimit=25000);
     ~Optimizer();
 
     void setSteadyInterval(boost::posix_time::time_duration);

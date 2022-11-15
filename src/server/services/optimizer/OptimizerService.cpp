@@ -100,7 +100,7 @@ void OptimizerService::runService()
     auto decreaseStep = config::ServerConfig::instance().get<int>("OptimizerDecreaseStep");
 
     auto qosInterval = config::ServerConfig::instance().get<int>("TimeMultiplexingQoSInterval");
-    auto defaultBwLimit = config::ServerConfig::instance().get<int>("TCNDefaultBwLimit");
+    auto defaultBwLimit = config::ServerConfig::instance().get<double>("TCNDefaultBwLimit");
 
     OptimizerNotifier optimizerCallbacks(
         config::ServerConfig::instance().get<bool>("MonitoringMessaging"),
