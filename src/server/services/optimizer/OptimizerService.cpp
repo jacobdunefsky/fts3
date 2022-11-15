@@ -99,6 +99,9 @@ void OptimizerService::runService()
     auto increaseAggressiveStep = config::ServerConfig::instance().get<int>("OptimizerAggressiveIncreaseStep");
     auto decreaseStep = config::ServerConfig::instance().get<int>("OptimizerDecreaseStep");
 
+    auto qosInterval = config::ServerConfig::instance().get<int>("TimeMultiplexingQoSInterval");
+    auto defaultBwLimit = config::ServerConfig::instance().get<int>("TCNDefaultBwLimit");
+
     OptimizerNotifier optimizerCallbacks(
         config::ServerConfig::instance().get<bool>("MonitoringMessaging"),
         config::ServerConfig::instance().get<std::string>("MessagingDirectory")
@@ -116,7 +119,9 @@ void OptimizerService::runService()
     Optimizer optimizer(
         db::DBSingleton::instance().getDBObjectInstance()->getOptimizerDataSource(),
         &optimizerCallbacks,
-        tcnOptimizer
+        tcnOptimizer,
+        qosInterval,
+        defaultBwLimit
     );
     optimizer.setSteadyInterval(optimizerSteadyInterval);
     optimizer.setMaxNumberOfStreams(maxNumberOfStreams);

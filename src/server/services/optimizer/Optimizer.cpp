@@ -33,12 +33,12 @@ namespace fts3 {
 namespace optimizer {
 
 
-Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer):
+Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer, time_t qosInterval, int64_t defaultBwLimit):
     dataSource(ds), callbacks(callbacks), tcnOptimizer(tcnOptimizer),
     optimizerSteadyInterval(boost::posix_time::seconds(60)), maxNumberOfStreams(10),
     maxSuccessRate(100), lowSuccessRate(97), baseSuccessRate(96),
-    decreaseStepSize(1), increaseStepSize(1), increaseAggressiveStepSize(2),
-    emaAlpha(EMA_ALPHA), resourceIntervalSize(30), resourceIntervalStart(time(NULL))
+    decreaseStepSize(1), increaseStepSize(1), increaseAggressiveStepSize(2), defaultBwLimit(defaultBwLimit),
+    emaAlpha(EMA_ALPHA), resourceIntervalSize(qosInterval), resourceIntervalStart(time(NULL))
 {
 }
 
@@ -134,6 +134,7 @@ void Optimizer::run(void)
             sleepingPipes.clear();
             initialTransferred.clear();
             resourceIntervalStart = now;
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: new QoS innterval starts" << commit;
         }
 
         std::list<Pair> pairs = dataSource->getActivePairs();
@@ -158,11 +159,12 @@ void Optimizer::run(void)
                     int64_t curTransferred = dataSource->getTransferredInfo(*i, resourceIntervalStart) - initialTransferred[*i];
                     // TODO: get resource limits from database
                     // uint64_t bwLimit = dataSource->getBwLimitForPipe(*i);
-                    uint64_t bwLimit = 50 * 1024 * 1024;
+                    uint64_t bwLimit = defaultBwLimit * 1024 * 1024;
                     if (curTransferred > resourceIntervalSize * bwLimit && bwLimit != 0) {
                         // we've gone over our bandwidth limit
                         // add to the set of sleeping pipes
                         sleepingPipes.insert(*i);
+                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
                     }
                 }
                 // if our pipe isn't sleeping, then send it to the optimizer
@@ -252,6 +254,7 @@ std::map<Pair, DecisionState> Optimizer::runNaiveTCNOptimizer(std::map<Pair, Pai
         auto f = sleepingPipes.find(pair);
         if (f != sleepingPipes.end()) {
             sleeping = true;
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << pair << " is sleeping..." << commit;
         }
 
         // Optimizer working values

@@ -200,6 +200,8 @@ protected:
     // when we have bandwidth constraints, they refer to average
     // throughput as measured over this interval
     time_t resourceIntervalSize;
+
+    int64_t defaultBwLimit;
     // pipes that are currently not scheduling transfers, in order to limit
     // throughput (time multiplexing)
     std::set<Pair> sleepingPipes;
@@ -228,7 +230,7 @@ protected:
     void applyDecisions(std::map<Pair, DecisionState> decisionVector, boost::timer::cpu_timer timer);
 
 public:
-    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer=NULL);
+    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer=NULL, time_t qosInterval=30, int64_t defaultBwLimit=25);
     ~Optimizer();
 
     void setSteadyInterval(boost::posix_time::time_duration);
