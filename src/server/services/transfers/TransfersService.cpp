@@ -109,6 +109,8 @@ void TransfersService::getFiles(const std::vector<QueueId>& queues, int availabl
 
     ThreadPool<FileTransferExecutor> execPool(execPoolSize);
     std::map<std::string, int> slotsLeftForSource, slotsLeftForDestination;
+	// TODO: use availableUrlCopySlots even with TCN?
+	// I think so...
     for (auto i = queues.begin(); i != queues.end(); ++i) {
         // To reduce queries, fill in one go limits as source and as destination
         if (slotsLeftForDestination.count(i->destSe) == 0) {
@@ -318,11 +320,15 @@ void TransfersService::executeUrlcopy()
         DBSingleton::instance().getDBObjectInstance()->getQueuesWithPending(queues);
         // Breaking determinism. See FTS-704 for an explanation.
         std::random_shuffle(queues.begin(), queues.end());
+
+		// Ignoring VO shares because TCN takes care of VO resource limits
+		// old code below
+		/*
         // Apply VO shares at this level. Basically, if more than one VO is used the same link,
         // pick one each time according to their respective weights
         queues = applyVoShares(queues, unschedulable);
         // Fail all that are unschedulable
-        failUnschedulable(unschedulable);
+        failUnschedulable(unschedulable);*/
 
         if (queues.empty()) {
             return;
