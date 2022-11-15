@@ -301,6 +301,7 @@ std::string MsgIfce::SendOptimizer(Producer &producer, const OptimizerInfo &opt_
 
     message["source_se"] = json::String(opt_info.source_se);
     message["dest_se"] = json::String(opt_info.dest_se);
+	message["vo_name"] = json::String(opt_info.vo_name);
     message["timestamp"] = json::Number(opt_info.timestamp);
 
     message["throughput"] = json::Number(opt_info.throughput);

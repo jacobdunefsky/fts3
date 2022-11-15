@@ -113,6 +113,7 @@ struct OptimizerInfo {
 public:
     std::string source_se;
     std::string dest_se;
+	std::string vo_name;
 
     time_t timestamp;
     double throughput;
