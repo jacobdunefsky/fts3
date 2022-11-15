@@ -167,11 +167,8 @@ void Optimizer::run(void)
                         FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
                     }
                 }
-                // if our pipe isn't sleeping, then send it to the optimizer
-                // auto f = sleepingPipes.find(*i);
-                // if (f == sleepingPipes.end()) {
-                //     aggregatedPairState[*i] = getPairState(*i);
-                // }
+
+                aggregatedPairState[*i] = getPairState(*i);
             }
         }
 
