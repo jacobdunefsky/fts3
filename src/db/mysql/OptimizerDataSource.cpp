@@ -233,7 +233,7 @@ public:
         resourceConstraints.clear();
 
         soci::rowset<soci::row> specs = (sql.prepare <<
-            " SELECT resc_id, max_usage from t_tcn_resource_ctrlspec WHERE proj_id = :proj_id"
+            " SELECT resc_id, max_usage from t_tcn_resource_ctrlspec"
             " WHERE proj_id = :proj_id",
             soci::use(project, "proj_id"));
 
