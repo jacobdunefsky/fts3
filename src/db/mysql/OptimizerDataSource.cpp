@@ -191,17 +191,16 @@ public:
     std::string getTcnProject(const Pair &pair) {
         std::string pid;
 
-	const static std::string tname("t_tcn_projects");
+        const static std::string tname("t_tcn_projects");
 
         soci::indicator isNullProject;
         sql <<
             "SELECT proj_id FROM ("
-            " SELECT proj_id FROM :tbl WHERE vo_name = :vo_name AND source_se = :source_se AND dest_se = :dest_se UNION"
-            " SELECT proj_id FROM :tbl WHERE vo_name = :vo_name AND source_se = :source_se AND dest_se = '*' UNION"
-            " SELECT proj_id FROM :tbl WHERE vo_name = :vo_name AND source_se = '*' AND dest_se = :dest_se UNION"
-            " SELECT proj_id FROM :tbl WHERE vo_name = :vo_name AND source_se = '*' AND dest_se = '*'"
+            " SELECT proj_id FROM t_tcn_projects WHERE vo_name = :vo_name AND source_se = :source_se AND dest_se = :dest_se UNION"
+            " SELECT proj_id FROM t_tcn_projects WHERE vo_name = :vo_name AND source_se = :source_se AND dest_se = '*' UNION"
+            " SELECT proj_id FROM t_tcn_projects WHERE vo_name = :vo_name AND source_se = '*' AND dest_se = :dest_se UNION"
+            " SELECT proj_id FROM t_tcn_projects WHERE vo_name = :vo_name AND source_se = '*' AND dest_se = '*'"
             " ) AS tpr LIMIT 1",
-	    soci::use(tname, "tbl"),
             soci::use(pair.vo, "vo_name"),
             soci::use(pair.source, "source_se"),
             soci::use(pair.destination, "dest_se"),
@@ -217,14 +216,11 @@ public:
     void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) {
         usedResources.clear();
 
-	const static std::string tname("t_tcn_resource_use");
-
         soci::rowset<soci::row> resources = (sql.prepare <<
-            "SELECT resc_id FROM :tbl"
+            "SELECT resc_id FROM t_tcn_resource_use"
             "WHERE source_se = :source_se AND dest_se = :dest_se",
-	    soci::use(tname, "tbl"),
-	    soci::use(pair.source, "source_se"),
-	    soci::use(pair.destination, "dest_se"));
+            soci::use(pair.source, "source_se"),
+            soci::use(pair.destination, "dest_se"));
 
         for (auto j = resources.begin(); j != resources.end(); ++j) {
             auto rescId = j->get<std::string>("resc_id");
@@ -234,22 +230,19 @@ public:
     }
 
     void getTcnResourceSpec(const std::string &project, std::map<std::string, double> &resourceConstraints) {
-	resourceConstraints.clear();
-
-	const static std::string tname("t_tcn_resource_ctrlspec");
+        resourceConstraints.clear();
 
         soci::rowset<soci::row> specs = (sql.prepare <<
-            " SELECT resc_id, max_usage from :tbl WHERE proj_id = :proj_id"
+            " SELECT resc_id, max_usage from t_tcn_resource_ctrlspec WHERE proj_id = :proj_id"
             " WHERE proj_id = :proj_id",
-	    soci::use(tname, "tbl"),
             soci::use(project, "proj_id"));
 
-	for (auto i = specs.begin(); i != specs.end(); ++i) {
-	    auto rescId = i->get<std::string>("resc_id");
-	    auto capacity = i->get<double>("max_usage");
+        for (auto i = specs.begin(); i != specs.end(); ++i) {
+            auto rescId = i->get<std::string>("resc_id");
+            auto capacity = i->get<double>("max_usage");
 
-	    resourceConstraints[rescId] = capacity;
-	}
+            resourceConstraints[rescId] = capacity;
+        }
     }
 
     int64_t getTransferredInfo(const Pair &pair, time_t windowStart) {
