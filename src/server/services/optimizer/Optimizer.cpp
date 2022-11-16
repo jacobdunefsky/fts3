@@ -169,10 +169,7 @@ void Optimizer::run(void)
 
                 aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
 
-                // Require method: std::string getTcnProject(cost Pair &pair);
-                // std::string project = dataSource->getTcnProject(*i);
-                // FIXME: hardcoded project id
-                std::string project = "project0";
+                std::string project = dataSource->getTcnProject(*i);
 
                 pairsOfProject[project].push_back(*i);
             }
@@ -184,19 +181,13 @@ void Optimizer::run(void)
                 auto projectPairs = it->second;
 
                 std::map<std::string, double> resourceLimits;
-                // Require method: void getTcnResourceSpec(const std::string project, std::map<std::string, double> &resourceLimits);
-                // dataSource->getTcnResourceSpec(project, resourceLimits);
-                // FIXME: hardcoded bw limits
-                resourceLimits["autolink_1"] = defaultBwLimit;
+                dataSource->getTcnResourceSpec(project, resourceLimits);
 
                 std::map<std::string, std::list<Pair>> resourcePairs;
 
                 for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
                     std::vector<std::string> usedResources;
-                    // Require method: void getTcnPipeResource(const Pair &pair, std::vector<std::string> &link_ids);
-                    // dataSource->getTcnPipeResource(*i, links);
-                    // FIXME: hardcoded link list for pair
-                    usedResources.push_back("autolink_1");
+                    dataSource->getTcnPipeResource(*p, usedResources);
 
                     for (auto resc = usedResources.begin(); resc != usedResources.end(); ++resc) {
                         resourcePairs[*resc].push_back(*p);
