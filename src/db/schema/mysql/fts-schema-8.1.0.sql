@@ -1,13 +1,13 @@
--- MySQL dump 10.13  Distrib 8.0.28, for Linux (x86_64)
+-- MySQL dump 10.14  Distrib 5.5.68-MariaDB, for Linux (x86_64)
 --
--- Host: localhost    Database: fts
+-- Host: dbod-fts-dev.cern.ch    Database: fts3
 -- ------------------------------------------------------
--- Server version	8.0.28
+-- Server version	8.0.18
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
+/*!50503 SET NAMES utf8 */;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -21,7 +21,7 @@
 
 DROP TABLE IF EXISTS `t_activity_share_config`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_activity_share_config` (
   `vo` varchar(100) NOT NULL,
   `activity_share` varchar(1024) NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE `t_activity_share_config` (
 
 DROP TABLE IF EXISTS `t_authz_dn`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_authz_dn` (
   `dn` varchar(255) NOT NULL,
   `operation` varchar(64) NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE `t_authz_dn` (
 
 DROP TABLE IF EXISTS `t_bad_dns`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_bad_dns` (
   `dn` varchar(255) NOT NULL DEFAULT '',
   `message` varchar(2048) DEFAULT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE `t_bad_dns` (
 
 DROP TABLE IF EXISTS `t_bad_ses`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_bad_ses` (
   `se` varchar(256) NOT NULL DEFAULT '',
   `message` varchar(2048) DEFAULT NULL,
@@ -87,7 +87,7 @@ CREATE TABLE `t_bad_ses` (
 
 DROP TABLE IF EXISTS `t_cloudStorage`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_cloudStorage` (
   `cloudStorage_name` varchar(150) NOT NULL,
   `app_key` varchar(255) DEFAULT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE `t_cloudStorage` (
 
 DROP TABLE IF EXISTS `t_cloudStorageUser`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_cloudStorageUser` (
   `user_dn` varchar(700) NOT NULL DEFAULT '',
   `vo_name` varchar(100) NOT NULL DEFAULT '',
@@ -124,7 +124,7 @@ CREATE TABLE `t_cloudStorageUser` (
 
 DROP TABLE IF EXISTS `t_config_audit`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_config_audit` (
   `datetime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `dn` varchar(255) DEFAULT NULL,
@@ -139,7 +139,7 @@ CREATE TABLE `t_config_audit` (
 
 DROP TABLE IF EXISTS `t_credential`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_credential` (
   `dlg_id` char(16) NOT NULL,
   `dn` varchar(255) NOT NULL,
@@ -157,7 +157,7 @@ CREATE TABLE `t_credential` (
 
 DROP TABLE IF EXISTS `t_credential_cache`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_credential_cache` (
   `dlg_id` char(16) NOT NULL,
   `dn` varchar(255) NOT NULL,
@@ -174,7 +174,7 @@ CREATE TABLE `t_credential_cache` (
 
 DROP TABLE IF EXISTS `t_dm`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_dm` (
   `file_id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `job_id` char(36) NOT NULL,
@@ -219,7 +219,7 @@ CREATE TABLE `t_dm` (
 
 DROP TABLE IF EXISTS `t_dm_backup`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_dm_backup` (
   `file_id` bigint unsigned NOT NULL DEFAULT '0',
   `job_id` char(36) NOT NULL,
@@ -261,7 +261,7 @@ CREATE TABLE `t_dm_backup` (
 
 DROP TABLE IF EXISTS `t_file`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_file` (
   `log_file_debug` tinyint(1) DEFAULT NULL,
   `file_id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -324,7 +324,7 @@ CREATE TABLE `t_file` (
 
 DROP TABLE IF EXISTS `t_file_backup`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_file_backup` (
   `log_file_debug` tinyint(1) DEFAULT NULL,
   `file_id` bigint unsigned NOT NULL DEFAULT '0',
@@ -376,7 +376,7 @@ CREATE TABLE `t_file_backup` (
 
 DROP TABLE IF EXISTS `t_file_retry_errors`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_file_retry_errors` (
   `file_id` bigint unsigned NOT NULL,
   `attempt` int NOT NULL,
@@ -394,7 +394,7 @@ CREATE TABLE `t_file_retry_errors` (
 
 DROP TABLE IF EXISTS `t_gridmap`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_gridmap` (
   `dn` varchar(255) NOT NULL,
   `vo` varchar(100) NOT NULL,
@@ -408,7 +408,7 @@ CREATE TABLE `t_gridmap` (
 
 DROP TABLE IF EXISTS `t_hosts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_hosts` (
   `hostname` varchar(64) NOT NULL,
   `beat` timestamp NULL DEFAULT NULL,
@@ -424,7 +424,7 @@ CREATE TABLE `t_hosts` (
 
 DROP TABLE IF EXISTS `t_job`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_job` (
   `job_id` char(36) NOT NULL,
   `job_state` enum('STAGING','ARCHIVING','QOS_TRANSITION','QOS_REQUEST_SUBMITTED','SUBMITTED','READY','ACTIVE','FINISHED','FAILED','FINISHEDDIRTY','CANCELED','DELETE') NOT NULL,
@@ -470,7 +470,7 @@ CREATE TABLE `t_job` (
 
 DROP TABLE IF EXISTS `t_job_backup`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_job_backup` (
   `job_id` char(36) NOT NULL,
   `job_state` enum('STAGING','ARCHIVING','QOS_TRANSITION','QOS_REQUEST_SUBMITTED','SUBMITTED','READY','ACTIVE','FINISHED','FAILED','FINISHEDDIRTY','CANCELED','DELETE') NOT NULL,
@@ -510,7 +510,7 @@ CREATE TABLE `t_job_backup` (
 
 DROP TABLE IF EXISTS `t_link_config`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_link_config` (
   `source_se` varchar(150) NOT NULL,
   `dest_se` varchar(150) NOT NULL,
@@ -533,7 +533,7 @@ CREATE TABLE `t_link_config` (
 
 DROP TABLE IF EXISTS `t_oauth2_apps`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_oauth2_apps` (
   `client_id` varchar(64) NOT NULL,
   `client_secret` varchar(128) NOT NULL,
@@ -552,7 +552,7 @@ CREATE TABLE `t_oauth2_apps` (
 
 DROP TABLE IF EXISTS `t_oauth2_codes`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_oauth2_codes` (
   `client_id` varchar(64) DEFAULT NULL,
   `code` varchar(128) NOT NULL,
@@ -568,7 +568,7 @@ CREATE TABLE `t_oauth2_codes` (
 
 DROP TABLE IF EXISTS `t_oauth2_providers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_oauth2_providers` (
   `provider_url` varchar(250) NOT NULL,
   `provider_jwk` varchar(1000) NOT NULL,
@@ -582,7 +582,7 @@ CREATE TABLE `t_oauth2_providers` (
 
 DROP TABLE IF EXISTS `t_oauth2_tokens`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_oauth2_tokens` (
   `client_id` varchar(64) NOT NULL,
   `scope` varchar(512) DEFAULT NULL,
@@ -601,7 +601,7 @@ CREATE TABLE `t_oauth2_tokens` (
 
 DROP TABLE IF EXISTS `t_optimizer`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_optimizer` (
   `source_se` varchar(150) NOT NULL,
   `dest_se` varchar(150) NOT NULL,
@@ -619,7 +619,7 @@ CREATE TABLE `t_optimizer` (
 
 DROP TABLE IF EXISTS `t_optimizer_evolution`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_optimizer_evolution` (
   `datetime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `source_se` varchar(150) DEFAULT NULL,
@@ -645,7 +645,7 @@ CREATE TABLE `t_optimizer_evolution` (
 
 DROP TABLE IF EXISTS `t_schema_vers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_schema_vers` (
   `major` int NOT NULL,
   `minor` int NOT NULL,
@@ -661,7 +661,7 @@ CREATE TABLE `t_schema_vers` (
 
 DROP TABLE IF EXISTS `t_se`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_se` (
   `storage` varchar(150) NOT NULL,
   `site` varchar(45) DEFAULT NULL,
@@ -684,7 +684,7 @@ CREATE TABLE `t_se` (
 
 DROP TABLE IF EXISTS `t_server_config`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_server_config` (
   `retry` int DEFAULT '0',
   `max_time_queue` int DEFAULT '0',
@@ -702,7 +702,7 @@ CREATE TABLE `t_server_config` (
 
 DROP TABLE IF EXISTS `t_share_config`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_share_config` (
   `source` varchar(150) NOT NULL,
   `destination` varchar(150) NOT NULL,
@@ -719,7 +719,7 @@ CREATE TABLE `t_share_config` (
 
 DROP TABLE IF EXISTS `t_stage_req`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_stage_req` (
   `vo_name` varchar(100) NOT NULL,
   `host` varchar(150) NOT NULL,
@@ -735,14 +735,14 @@ CREATE TABLE `t_stage_req` (
 
 DROP TABLE IF EXISTS `t_tcn_projects`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_tcn_projects` (
   `source_se` varchar(150) NOT NULL,
   `dest_se` varchar(150) NOT NULL,
   `vo_name` varchar(50) NOT NULL,
   `proj_id` varchar(50) NOT NULL,
   PRIMARY KEY (`source_se`,`dest_se`,`vo_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -751,14 +751,14 @@ CREATE TABLE `t_tcn_projects` (
 
 DROP TABLE IF EXISTS `t_tcn_resource_ctrlspec`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_tcn_resource_ctrlspec` (
   `proj_id` varchar(50) NOT NULL,
   `resc_id` varchar(64) NOT NULL,
   `max_usage` double DEFAULT NULL,
   `max_share` double DEFAULT NULL,
   PRIMARY KEY (`proj_id`,`resc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -767,22 +767,11 @@ CREATE TABLE `t_tcn_resource_ctrlspec` (
 
 DROP TABLE IF EXISTS `t_tcn_resource_use`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_tcn_resource_use` (
   `source_se` varchar(50) NOT NULL,
   `dest_se` varchar(150) NOT NULL,
   `resc_id` varchar(64) NOT NULL,
   PRIMARY KEY (`source_se`,`dest_se`,`resc_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
-
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2022-11-16 15:29:53
