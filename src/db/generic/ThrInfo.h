@@ -27,11 +27,10 @@
 #include "common/Uri.h"
 
 struct TransferredStat {
-    int64_t transferred, limit;
+    int64_t transferred;
+    double limit;
 
-    TransferredStat(const int64_t &t, const int64_t &l): 
-                transferred(t), limit(l)
-    {
+    TransferredStat(const int64_t &t, const double &l): transferred(t), limit(l) {
     }
 };
 

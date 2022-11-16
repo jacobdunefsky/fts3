@@ -27,9 +27,12 @@
 #include "common/Uri.h"
 
 struct Pair {
-    std::string source, destination;
+    std::string source, destination, vo;
 
-    Pair(const std::string &s, const std::string &d): source(s), destination(d) {
+    Pair(const std::string &s, const std::string &d): source(s), destination(d), vo("") {
+    }
+
+    Pair(const std::string &s, const std::string &d, const std::string &v): source(s), destination(d), vo(v) {
     }
 
     bool isLanTransfer() const {
@@ -37,13 +40,16 @@ struct Pair {
     }
 };
 
+// FIXME: So far, assume each (source, destination) pair only has one vo first.
+// Support multiple vo later.
+
 // Required so it can be used as a key on a std::map
 inline bool operator < (const Pair &a, const Pair &b) {
     return a.source < b.source || (a.source == b.source && a.destination < b.destination);
 }
 
 inline bool operator == (const Pair &a, const Pair &b) {
-  return a.source == b.source && a.destination == b.destination;
+    return a.source == b.source && a.destination == b.destination;
 }
 
 inline std::ostream& operator << (std::ostream &os, const Pair &pair) {

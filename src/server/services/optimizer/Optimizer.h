@@ -31,7 +31,7 @@
 #include <boost/timer/timer.hpp>
 #include <db/generic/LinkConfig.h>
 #include <db/generic/Pair.h>
-#include <dg/generic/ThrInfo.h>
+#include <db/generic/ThrInfo.h>
 #include <msg-bus/producer.h>
 
 #include "common/Uri.h"
@@ -141,14 +141,12 @@ public:
     // Get the stored optimizer value (current value)
     virtual int getOptimizerValue(const Pair&) = 0;
 
-    virtual std::string getPairProject(cost Pair &pair) = 0;
+    virtual std::string getTcnProject(const Pair &pair) = 0;
 
-    virtual void getPairLinks(const Pair &pair, std::vector<std::string> &link_ids) = 0;
+    virtual void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) = 0;
 
-    virtual void getPairBWLimits(const Pair &pair, std::map<std::string, int64_t> &link_limits) = 0;
-
-    virtual void getPairLimitOnPLinks(const Pair &pair, time_t windowStart, 
-                        std::map<std::string, TransferredStat> &thr_map) = 0;
+    virtual void getTcnResourceSpec(const std::string &project,
+	std::map<std::string, double> &resourceConstraints) = 0;
 
     // Get the weighted throughput for the pair
     virtual void getThroughputInfo(const Pair &, const boost::posix_time::time_duration &,
