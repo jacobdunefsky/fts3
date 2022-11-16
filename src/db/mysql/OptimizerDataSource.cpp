@@ -276,7 +276,7 @@ public:
         return;
     }
 
-    void getPairLimits(const Pair &pair, std::map<std::string, int64_t> &link_limits)
+    void getPairBWLimits(const Pair &pair, std::map<std::string, int64_t> &link_limits)
     {
         link_limits.clear();
 
@@ -338,7 +338,7 @@ public:
 
         //get and set the limits - initalize the transferred bytes 
         std::map<std::string, int64_t> link_limits; 
-        getPairLimits(pair, link_limits);
+        getPairBWLimits(pair, link_limits);
 
         std::map<std::string, int64_t>::iterator it;
 

@@ -23,6 +23,7 @@
 
 #include <list>
 #include <map>
+#include <set>
 #include <string>
 
 #include <boost/noncopyable.hpp>
@@ -34,10 +35,33 @@
 #include <msg-bus/producer.h>
 
 #include "common/Uri.h"
+#include "alto/alto_client.hpp"
 
 
 namespace fts3 {
 namespace optimizer {
+
+// borrowed from http://oroboro.com/irregular-ema/
+static inline double exponentialMovingAverage(double sample, double alpha, double cur)
+{
+    if (sample > 0)
+        cur = (sample * alpha) + ((1 - alpha) * cur);
+    return cur;
+}
+
+
+static boost::posix_time::time_duration calculateTimeFrame(time_t avgDuration)
+{
+    if(avgDuration > 0 && avgDuration < 30) {
+        return boost::posix_time::minutes(5);
+    }
+    else if(avgDuration > 30 && avgDuration < 900) {
+        return boost::posix_time::minutes(15);
+    }
+    else {
+        return boost::posix_time::minutes(30);
+    }
+}
 
 
 struct Range {
@@ -73,14 +97,31 @@ struct PairState {
     double filesizeAvg, filesizeStdDev;
     // Optimizer last decision
     int connections;
+    // Time-multiplexing througput
+    double tm_throughput;
 
     PairState(): timestamp(0), throughput(0), avgDuration(0), successRate(0), retryCount(0), activeCount(0),
-                 queueSize(0), ema(0), filesizeAvg(0), filesizeStdDev(0), connections(1) {}
+                 queueSize(0), ema(0), filesizeAvg(0), filesizeStdDev(0), connections(1), tm_throughput(0) {}
 
     PairState(time_t ts, double thr, time_t ad, double sr, int rc, int ac, int qs, double ema, int conn):
         timestamp(ts), throughput(thr), avgDuration(ad), successRate(sr), retryCount(rc),
-        activeCount(ac), queueSize(qs), ema(ema), filesizeAvg(0), filesizeStdDev(0), connections(conn) {}
+        activeCount(ac), queueSize(qs), ema(ema), filesizeAvg(0), filesizeStdDev(0), connections(conn), tm_throughput(0) {}
 };
+
+struct DecisionState {
+    PairState current;
+    int decision;
+    int diff;
+    std::string rationale;
+
+    DecisionState(): decision(0), diff(0) {}
+    DecisionState(PairState current): decision(0), diff(0), current(current) {}
+    DecisionState(PairState current, int decision): current(current), decision(decision), diff(0) {}
+    DecisionState(PairState current, int decision, int diff): current(current), decision(decision), diff(diff) {}
+    DecisionState(PairState current, int decision, int diff, std::string rationale): decision(decision), diff(diff), current(current), rationale(rationale) {}
+};
+
+#include "OptimizerTCN.h"
 
 // To decouple the optimizer core logic from the data storage/representation
 class OptimizerDataSource {
@@ -104,17 +145,17 @@ public:
 
     virtual void getPairLinks(const Pair &pair, std::vector<std::string> &link_ids) = 0;
 
-    virtual void getPairLimits(const Pair &pair, std::map<std::string, int64_t> &link_limits) = 0;
+    virtual void getPairBWLimits(const Pair &pair, std::map<std::string, int64_t> &link_limits) = 0;
 
     virtual void getPairLimitOnPLinks(const Pair &pair, time_t windowStart, 
                         std::map<std::string, TransferredStat> &thr_map) = 0;
 
-    virtual int64_t getTransferredInfo(const Pair &pair, time_t windowStart) = 0;
     // Get the weighted throughput for the pair
     virtual void getThroughputInfo(const Pair &, const boost::posix_time::time_duration &,
         double *throughput, double *filesizeAvg, double *filesizeStdDev) = 0;
 
-    
+    virtual int64_t getTransferredInfo(const Pair &pair, time_t windowStart) = 0;
+
     virtual time_t getAverageDuration(const Pair&, const boost::posix_time::time_duration&) = 0;
 
     // Get the success rate for the pair
@@ -159,6 +200,25 @@ protected:
     int increaseStepSize, increaseAggressiveStepSize;
     double emaAlpha;
 
+    //
+    // Member for TCN optimizer specific
+    //
+    TCNOptimizer *tcnOptimizer;
+
+    // time multiplexing stuff
+
+    // size of interval in seconds
+    // TODO: get from config
+    // when we have bandwidth constraints, they refer to average
+    // throughput as measured over this interval
+    time_t qosInterval;
+
+    double defaultBwLimit;
+    // pipes that are currently not scheduling transfers, in order to limit
+    // throughput (time multiplexing)
+    std::set<Pair> sleepingPipes;
+    time_t qosIntervalStart; // beginning of the current resource interval
+
     // Run the optimization algorithm for the number of connections.
     // Returns true if a decision is stored
     bool optimizeConnectionsForPair(OptimizerMode optMode, const Pair &);
@@ -169,12 +229,18 @@ protected:
     // Stores into rangeActiveMin and rangeActiveMax the working range for the optimizer
     void getOptimizerWorkingRange(const Pair &pair, Range *range, StorageLimits *limits);
 
+    // Retrieve previous running state of the pair
+    PairState getPairState(const Pair &pair, bool timeMultiplexing, bool newInterval);
+
     // Updates decision
     void setOptimizerDecision(const Pair &pair, int decision, const PairState &current,
         int diff, const std::string &rationale, boost::timer::cpu_times elapsed);
 
+    // Apply decisions to pairs
+    void applyDecisions(std::map<Pair, DecisionState> decisionVector, boost::timer::cpu_timer timer);
+
 public:
-    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks);
+    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer=NULL, time_t qosInterval=30, double defaultBwLimit=25000);
     ~Optimizer();
 
     void setSteadyInterval(boost::posix_time::time_duration);
@@ -185,7 +251,9 @@ public:
     void setStepSize(int increase, int increaseAggressive, int decrease);
     void setEmaAlpha(double);
     void run(void);
-    void runOptimizerForPair(const Pair&);
+    OptimizerMode runOptimizerForPair(const Pair&);
+    std::map<Pair, DecisionState> runTCNOptimizer(std::map<Pair, PairState> aggregatedPairState);
+    std::map<Pair, DecisionState> runNaiveTCNOptimizer(std::map<Pair, PairState> aggregatedPairState);
 };
 
 
