@@ -156,6 +156,8 @@ void Optimizer::run(void)
         // See FTS-1094
         pairs.sort();
 
+        std::map<string, std::list<Pair>> pairsOfProject;
+
         // Retrieve pair state
         std::map<Pair, PairState> aggregatedPairState;
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
@@ -167,23 +169,69 @@ void Optimizer::run(void)
 
                 aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
 
-                // see if it's time for this pipe to stop transferring
-                // (in order to respect bandwidth limits)
-                if (!newInterval) {
-                    // TODO: get resource limits from database
-                    // uint64_t bwLimit = dataSource->getBwLimitForPipe(*i);
-                    double bwLimit = defaultBwLimit / 1024;
-                    double actualMBps = aggregatedPairState[*i].throughput / 1024 / 1024;
-                    if (actualMBps > bwLimit && bwLimit != 0) {
-                        // we've gone over our bandwidth limit
-                        // add to the set of sleeping pipes
-                        sleepingPipes.insert(*i);
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i
-                            << " (target: " << bwLimit << " MB/s, actual: " << actualMBps << " MB/s) "
-                            << " exceeds resource limit, sleep." << commit;
+                // Require method: std::string getTcnProject(cost Pair &pair);
+                // std::string project = dataSource->getTcnProject(*i);
+                // FIXME: hardcoded project id
+                std::string project = "project0";
+
+                pairsOfProject[project].push_back(*i);
+            }
+        }
+
+        if (!newInterval) {
+            for (auto it = pairsOfProject.begin(); it != pairsOfProject.end(); ++it) {
+                auto project = it->first;
+                auto projectPairs = it->second;
+
+                std::map<std::string, double> resourceLimits;
+                // Require method: void getTcnResourceSpec(const std::string project, std::map<std::string, double> &resourceLimits);
+                // dataSource->getTcnResourceSpec(project, resourceLimits);
+                // FIXME: hardcoded bw limits
+                resourceLimits["autolink_1"] = defaultBwLimit;
+
+                std::map<std::string, std::list<Pair>> resourcePairs;
+
+                for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
+                    std::vector<std::string> usedResources;
+                    // Require method: void getTcnPipeResource(const Pair &pair, std::vector<std::string> &link_ids);
+                    // dataSource->getTcnPipeResource(*i, links);
+                    // FIXME: hardcoded link list for pair
+                    usedResources.push_back("autolink_1");
+
+                    for (auto resc = usedResources.begin(); resc != usedResources.end(); ++resc) {
+                        resourcePairs[*resc].push_back(*p);
                     }
                 }
 
+                bool sleeping = false;
+
+                for (auto rl = resourceLimits.begin(); rl != resourceLimits.end(); ++rl) {
+                    auto resc = rl->first;
+                    double bwLimit = rl->second / 1024;
+                    auto pairsUsingResource = resourcePairs[resc];
+
+                    double actualMBps = 0;
+                    for (auto p = pairsUsingResource.begin(); p != pairsUsingResource.end(); ++p) {
+                        actualMBps += aggregatedPairState[*p].throughput / 1024 / 1024;
+                    }
+
+                    if (actualMBps > bwLimit) {
+                        sleeping = true;
+                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: project " << project
+                            << " exceeds limit on resource " << resc
+                            << " (target: " << bwLimit << " MB/s, actual: " << actualMBps << " MB/s),"
+                            << " all pipes of the project will sleep." << commit;
+                        break;
+                    }
+                }
+
+                if (sleeping) {
+                    for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
+                        sleepingPipes.insert(*p);
+                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *p
+                            << " in project " << project << " is sleeping." << commit;
+                    }
+                }
             }
         }
 
