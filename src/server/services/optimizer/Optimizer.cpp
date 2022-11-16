@@ -171,6 +171,8 @@ void Optimizer::run(void)
 
                 std::string project = dataSource->getTcnProject(*i);
 
+                FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "TCN Control: put pipe " << *i << " to project "
+                    << project << commit;
                 pairsOfProject[project].push_back(*i);
             }
         }
@@ -183,6 +185,10 @@ void Optimizer::run(void)
                 std::map<std::string, double> resourceLimits;
                 dataSource->getTcnResourceSpec(project, resourceLimits);
 
+                FTS3_COMMON_LOGGER_NEWLOG(DEBUG)
+                    << "TCN Control: getting TCN resource control spec for project "
+                    << project << commit;
+
                 std::map<std::string, std::list<Pair>> resourcePairs;
 
                 for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
@@ -190,6 +196,9 @@ void Optimizer::run(void)
                     dataSource->getTcnPipeResource(*p, usedResources);
 
                     for (auto resc = usedResources.begin(); resc != usedResources.end(); ++resc) {
+                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "TCN Control: getting TCN resource usage: "
+                            << project << " | " << *p << " (" << p->vo << ") uses resource "
+                            << *resc << commit;
                         resourcePairs[*resc].push_back(*p);
                     }
                 }
