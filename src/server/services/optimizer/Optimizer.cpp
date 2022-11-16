@@ -158,6 +158,10 @@ void Optimizer::run(void)
 
         // Retrieve pair state
         std::map<Pair, PairState> aggregatedPairState;
+		// amount transferred per project per link
+		std::map<std::pair<std::string, std::string>, double> transferredMap;
+
+		auto tputLimits = dataSource->getTputLimits();
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Test run " << *i << " using traditional optimizer" << commit;
             auto optMode = runOptimizerForPair(*i);
@@ -170,18 +174,23 @@ void Optimizer::run(void)
                 // see if it's time for this pipe to stop transferring
                 // (in order to respect bandwidth limits)
                 if (!newInterval) {
-                    // TODO: get resource limits from database
-                    // uint64_t bwLimit = dataSource->getBwLimitForPipe(*i);
-                    double bwLimit = defaultBwLimit / 1024;
-                    double actualMBps = aggregatedPairState[*i].throughput / 1024 / 1024;
-                    if (actualMBps > bwLimit && bwLimit != 0) {
-                        // we've gone over our bandwidth limit
-                        // add to the set of sleeping pipes
-                        sleepingPipes.insert(*i);
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i
-                            << " (target: " << bwLimit << " MB/s, actual: " << actualMBps << " MB/s) "
-                            << " exceeds resource limit, sleep." << commit;
-                    }
+					auto links = dataSource->getLinks(i->source, i->destination);
+					for(auto link = links.begin(); link != links.end(); link++){
+						auto key = std::pair<std::string, std::string>(i->vo_name, *link);
+						double newTput = aggregatedPairState[*i].throughput;
+						auto value = transferredMap.find(key)
+						if (key != transferredMap.end()) {
+							newTput += *value;
+						}
+						transferredMap[key] = newTput;
+						double linkLimit = dataSource->getTputLimits(i->vo_name, *link);
+						if(newTput > linkLimit/1024 && linkLimit != 0) {
+							sleepingPipes.insert(*i);
+							FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i
+								<< " (target: " << bwLimit << " MB/s, actual: " << actualMBps << " MB/s) "
+								<< " exceeds resource limit on link " << *link << "; sleep." << commit;
+						}
+					}
                 }
 
             }

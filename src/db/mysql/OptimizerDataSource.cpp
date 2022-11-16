@@ -25,6 +25,8 @@
 #include "common/Logger.h"
 #include "sociConversions.h"
 
+#include <unordered_set>
+
 using namespace db;
 using namespace fts3;
 using namespace fts3::common;
@@ -245,6 +247,41 @@ public:
         }
 		return totalBytes;
     }
+
+	// returns throughput limits per project per link
+	double getTputLimits(std::string projId, std::string plinkId)
+    {
+		double retval = 0;
+        soci::rowset<soci::row> links = (sql.prepare <<
+        "SELECT max_throughput "
+        " FROM t_bounds "
+        " WHERE "
+        "   proj_id = :projId AND plink_id = :plinkId",
+        soci::use(projId, "projId"), soci::use(plinkId, "plinkId"),
+		soci::into(retval));
+
+		return retval;
+    }
+
+	std::unordered_set<std::string> getLinks(std::string src, std::string dst)
+    {
+        soci::rowset<soci::row> links = (sql.prepare <<
+        "SELECT plink_id "
+        " FROM t_routing "
+        " WHERE "
+        "   source_se = :sourceSe AND dest_se = :destSe",
+        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"));
+
+		std::unordered_set<std::string> retval;
+
+        for (auto j = links.begin(); j != links.end(); ++j) {
+			retval.insert(j->get<std::string>("plink_id", ""));
+;
+		}
+
+		return retval;
+    }
+
 
 
     void getThroughputInfo(const Pair &pair, const boost::posix_time::time_duration &interval,
