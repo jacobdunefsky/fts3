@@ -213,9 +213,8 @@ public:
         return pid;
     }
 
-    void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) {
-        usedResources.clear();
-
+    std::vector<std::string> getTcnPipeResource(const Pair &pair) {
+        std::vector<std::string> retval;
         soci::rowset<soci::row> resources = (sql.prepare <<
             "SELECT resc_id FROM t_tcn_resource_use "
             " WHERE source_se = :source_se AND dest_se = :dest_se",
@@ -225,12 +224,13 @@ public:
         for (auto j = resources.begin(); j != resources.end(); ++j) {
             auto rescId = j->get<std::string>("resc_id");
 
-            usedResources.push_back(rescId);
+            retval.push_back(rescId);
         }
+        return retval;
     }
 
-    void getTcnResourceSpec(const std::string &project, std::map<std::string, double> &resourceConstraints) {
-        resourceConstraints.clear();
+    std::map<std::string, double> getTcnResourceSpec(const std::string &project,  &resourceConstraints) {
+        std::map<std::string, double> retval;
 
         soci::rowset<soci::row> specs = (sql.prepare <<
             "SELECT resc_id, max_usage from t_tcn_resource_ctrlspec "
@@ -241,8 +241,9 @@ public:
             auto rescId = i->get<std::string>("resc_id");
             auto capacity = i->get<double>("max_usage");
 
-            resourceConstraints[rescId] = capacity;
+            retval[rescId] = capacity;
         }
+        return retval;
     }
 
     int64_t getTransferredInfo(const Pair &pair, time_t windowStart) {
