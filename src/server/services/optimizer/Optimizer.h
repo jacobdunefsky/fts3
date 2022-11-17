@@ -31,6 +31,7 @@
 #include <boost/timer/timer.hpp>
 #include <db/generic/LinkConfig.h>
 #include <db/generic/Pair.h>
+#include <db/generic/ThrInfo.h>
 #include <msg-bus/producer.h>
 
 #include "common/Uri.h"
@@ -140,6 +141,13 @@ public:
     // Get the stored optimizer value (current value)
     virtual int getOptimizerValue(const Pair&) = 0;
 
+    virtual std::string getTcnProject(const Pair &pair) = 0;
+
+    virtual void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) = 0;
+
+    virtual void getTcnResourceSpec(const std::string &project,
+	std::map<std::string, double> &resourceConstraints) = 0;
+
     // Get the weighted throughput for the pair
     virtual void getThroughputInfo(const Pair &, const boost::posix_time::time_duration &,
         double *throughput, double *filesizeAvg, double *filesizeStdDev) = 0;
@@ -208,6 +216,8 @@ protected:
     // throughput (time multiplexing)
     std::set<Pair> sleepingPipes;
     time_t qosIntervalStart; // beginning of the current resource interval
+	// initial number of bytes transferred
+    std::map<Pair, int64_t> initialTransferred;
 
     // Run the optimization algorithm for the number of connections.
     // Returns true if a decision is stored

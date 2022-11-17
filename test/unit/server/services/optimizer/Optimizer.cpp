@@ -196,6 +196,27 @@ public:
         return totalSize;
     }
 
+    std::string getTcnProject(const Pair &pair) {
+        // TODO: mock function for unit test
+        return "project0";
+    }
+
+    void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) {
+        // TODO: mock function for unit test
+        return;
+    }
+
+    void getTcnResourceSpec(const std::string &project, std::map<std::string, double> &resourceConstraints) {
+        // TODO: mock function for unit test
+        return;
+    }
+
+    void getPairLimitOnPLinks(const Pair &pair, time_t windowStart,
+        std::map<std::string, TransferredStat> &thr_map) {
+        // TODO: mock function for unit test
+        return;
+    }
+
     time_t getAverageDuration(const Pair &pair, const boost::posix_time::time_duration &interval) {
         auto tsi = transferStore.find(pair);
         if (tsi == transferStore.end()) {
