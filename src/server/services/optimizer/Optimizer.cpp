@@ -156,14 +156,14 @@ void Optimizer::run(void)
         // See FTS-1094
         pairs.sort();
 
-        std::map<string, std::list<Pair>> pairsOfProject;
-
         // Retrieve pair state
         std::map<Pair, PairState> aggregatedPairState;
-		// amount transferred per project per link
-		std::map<std::pair<std::string, std::string>, double> transferredMap;
+        // amount transferred per project per link
+        std::map<std::pair<std::string, std::string>, double> transferredMap;
 
-		auto tputLimits = dataSource->getTputLimits();
+        // resource limits per project
+        std::map<std::string, std::map<std::string, double>> resourceLimits;
+
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Test run " << *i << " using traditional optimizer" << commit;
             auto optMode = runOptimizerForPair(*i);
@@ -172,68 +172,29 @@ void Optimizer::run(void)
                 FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
 
                 aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
-
                 std::string project = dataSource->getTcnProject(*i);
-
-                FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "TCN Control: put pipe " << *i << " to project "
-                    << project << commit;
-                pairsOfProject[project].push_back(*i);
-            }
-        }
-
-        if (!newInterval) {
-            for (auto it = pairsOfProject.begin(); it != pairsOfProject.end(); ++it) {
-                auto project = it->first;
-                auto projectPairs = it->second;
-
-                std::map<std::string, double> resourceLimits;
-                dataSource->getTcnResourceSpec(project, resourceLimits);
-
-                FTS3_COMMON_LOGGER_NEWLOG(DEBUG)
-                    << "TCN Control: getting TCN resource control spec for project "
-                    << project << commit;
-
-                std::map<std::string, std::list<Pair>> resourcePairs;
-
-                for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
-                    std::vector<std::string> usedResources;
-                    dataSource->getTcnPipeResource(*p, usedResources);
-
-                    for (auto resc = usedResources.begin(); resc != usedResources.end(); ++resc) {
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "TCN Control: getting TCN resource usage: "
-                            << project << " | " << *p << " (" << p->vo << ") uses resource "
-                            << *resc << commit;
-                        resourcePairs[*resc].push_back(*p);
-                    }
+                auto limitsFound = resourceLimits.find(project);
+                if(limitsFound == resourceLimits.end()) {
+                    resourceLimits[project] = dataSource->getTcnResourceSpec();
                 }
 
-                bool sleeping = false;
-
-                for (auto rl = resourceLimits.begin(); rl != resourceLimits.end(); ++rl) {
-                    auto resc = rl->first;
-                    double bwLimit = rl->second / 1024;
-                    auto pairsUsingResource = resourcePairs[resc];
-
-                    double actualMBps = 0;
-                    for (auto p = pairsUsingResource.begin(); p != pairsUsingResource.end(); ++p) {
-                        actualMBps += aggregatedPairState[*p].throughput / 1024 / 1024;
-                    }
-
-                    if (actualMBps > bwLimit) {
-                        sleeping = true;
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: project " << project
-                            << " exceeds limit on resource " << resc
-                            << " (target: " << bwLimit << " MB/s, actual: " << actualMBps << " MB/s),"
-                            << " all pipes of the project will sleep." << commit;
-                        break;
+                std::vector<std::string> links = dataSource->getTcnPipeResource(*p);
+                if (newInterval) {
+                    for(auto link = links.begin(); link != links.end(); link++){
+                        initialTransferred[std::pair<project,*link>] = dataSource->getTransferredInfo(*i, qosIntervalStart);
                     }
                 }
-
-                if (sleeping) {
-                    for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
-                        sleepingPipes.insert(*p);
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *p
-                            << " in project " << project << " is sleeping." << commit;
+                else {
+                    for(auto link = links.begin(); link != links.end(); link++){
+                        int64_t curTransferred = dataSource->getTransferredInfo(*i, qosIntervalStart) - initialTransferred[std::pair<project,*link>];
+                        uint64_t limit = resourceLimits[project][*link];
+                        // multiply limit by 1024 to get MBps
+                        if (curTransferred > qosInterval * limit * 1024 && limit != 0) {
+                            // we've gone over our bandwidth limit
+                            // add to the set of sleeping pipes
+                            sleepingPipes.insert(*i);
+                            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
+                        }
                     }
                 }
             }
@@ -251,11 +212,6 @@ void Optimizer::run(void)
         else {
             decisionVector = runTCNOptimizer(aggregatedPairState);
         }
-
-        // for(auto sleepingPipe = sleepingPipes.begin(); sleepingPipe != sleepingPipes.end(); sleepingPipe++){
-            // set decision for sleeping pipes to zero
-            // decisionVector[*sleepingPipe] = 0;
-        // }
 
         boost::timer::cpu_times const elapsed(timer.elapsed());
         FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Global time elapsed: " << elapsed.system << ", " << elapsed.user << commit;

@@ -133,7 +133,7 @@ public:
         return getOptimizerModeInner(sql, source, dest);
     }
 
-	// TODO: update to use vo_name? 
+    // TODO: update to use vo_name? 
     void getPairLimits(const Pair &pair, Range *range, StorageLimits *limits) {
         soci::indicator nullIndicator;
 
@@ -215,9 +215,8 @@ public:
         return pid;
     }
 
-    void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) {
-        usedResources.clear();
-
+    std::vector<std::string> getTcnPipeResource(const Pair &pair) {
+        std::vector<std::string> retval;
         soci::rowset<soci::row> resources = (sql.prepare <<
             "SELECT resc_id FROM t_tcn_resource_use "
             " WHERE source_se = :source_se AND dest_se = :dest_se",
@@ -227,12 +226,13 @@ public:
         for (auto j = resources.begin(); j != resources.end(); ++j) {
             auto rescId = j->get<std::string>("resc_id");
 
-            usedResources.push_back(rescId);
+            retval.push_back(rescId);
         }
+        return retval;
     }
 
-    void getTcnResourceSpec(const std::string &project, std::map<std::string, double> &resourceConstraints) {
-        resourceConstraints.clear();
+    std::map<std::string, double> getTcnResourceSpec(const std::string &project) {
+        std::map<std::string, double> retval;
 
         soci::rowset<soci::row> specs = (sql.prepare <<
             "SELECT resc_id, max_usage from t_tcn_resource_ctrlspec "
@@ -243,8 +243,9 @@ public:
             auto rescId = i->get<std::string>("resc_id");
             auto capacity = i->get<double>("max_usage");
 
-            resourceConstraints[rescId] = capacity;
+            retval[rescId] = capacity;
         }
+        return retval;
     }
 
     int64_t getTransferredInfo(const Pair &pair, time_t windowStart) {
@@ -300,25 +301,25 @@ public:
 
             totalBytes += bytesInWindow;
         }
-		return totalBytes;
+        return totalBytes;
     }
 
-	// returns throughput limits per project per link
-	double getTputLimits(std::string projId, std::string plinkId)
+    // returns throughput limits per project per link
+    double getTputLimits(std::string projId, std::string plinkId)
     {
-		double retval = 0;
+        double retval = 0;
         soci::rowset<soci::row> links = (sql.prepare <<
         "SELECT max_throughput "
         " FROM t_bounds "
         " WHERE "
         "   proj_id = :projId AND plink_id = :plinkId",
         soci::use(projId, "projId"), soci::use(plinkId, "plinkId"),
-		soci::into(retval));
+        soci::into(retval));
 
-		return retval;
+        return retval;
     }
 
-	std::unordered_set<std::string> getLinks(std::string src, std::string dst)
+    std::unordered_set<std::string> getLinks(std::string src, std::string dst)
     {
         soci::rowset<soci::row> links = (sql.prepare <<
         "SELECT plink_id "
@@ -327,14 +328,14 @@ public:
         "   source_se = :sourceSe AND dest_se = :destSe",
         soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"));
 
-		std::unordered_set<std::string> retval;
+        std::unordered_set<std::string> retval;
 
         for (auto j = links.begin(); j != links.end(); ++j) {
-			retval.insert(j->get<std::string>("plink_id", ""));
+            retval.insert(j->get<std::string>("plink_id", ""));
 ;
-		}
+        }
 
-		return retval;
+        return retval;
     }
 
     void getThroughputInfo(const Pair &pair, const boost::posix_time::time_duration &interval,
