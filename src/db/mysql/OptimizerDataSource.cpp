@@ -217,8 +217,8 @@ public:
         usedResources.clear();
 
         soci::rowset<soci::row> resources = (sql.prepare <<
-            "SELECT resc_id FROM t_tcn_resource_use"
-            "WHERE source_se = :source_se AND dest_se = :dest_se",
+            "SELECT resc_id FROM t_tcn_resource_use "
+            " WHERE source_se = :source_se AND dest_se = :dest_se",
             soci::use(pair.source, "source_se"),
             soci::use(pair.destination, "dest_se"));
 
@@ -233,7 +233,7 @@ public:
         resourceConstraints.clear();
 
         soci::rowset<soci::row> specs = (sql.prepare <<
-            " SELECT resc_id, max_usage from t_tcn_resource_ctrlspec"
+            "SELECT resc_id, max_usage from t_tcn_resource_ctrlspec "
             " WHERE proj_id = :proj_id",
             soci::use(project, "proj_id"));
 
