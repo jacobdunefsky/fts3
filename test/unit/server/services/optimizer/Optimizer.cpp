@@ -201,14 +201,16 @@ public:
         return "project0";
     }
 
-    void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) {
+    std::vector<std::string> getTcnPipeResource(const Pair &pair) {
         // TODO: mock function for unit test
+		std::vector<std::string> retval;
         return;
     }
 
-    void getTcnResourceSpec(const std::string &project, std::map<std::string, double> &resourceConstraints) {
+    std::map<std::string, double> getTcnResourceSpec(const std::string &project) {
         // TODO: mock function for unit test
-        return;
+		std::map<std::string, double> retval;
+        return retval;
     }
 
     void getPairLimitOnPLinks(const Pair &pair, time_t windowStart,
