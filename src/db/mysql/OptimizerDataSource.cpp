@@ -229,7 +229,7 @@ public:
         return retval;
     }
 
-    std::map<std::string, double> getTcnResourceSpec(const std::string &project,  &resourceConstraints) {
+    std::map<std::string, double> getTcnResourceSpec(const std::string &project) {
         std::map<std::string, double> retval;
 
         soci::rowset<soci::row> specs = (sql.prepare <<

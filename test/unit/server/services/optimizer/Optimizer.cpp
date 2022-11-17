@@ -204,7 +204,7 @@ public:
     std::vector<std::string> getTcnPipeResource(const Pair &pair) {
         // TODO: mock function for unit test
 		std::vector<std::string> retval;
-        return;
+        return retval;
     }
 
     std::map<std::string, double> getTcnResourceSpec(const std::string &project) {

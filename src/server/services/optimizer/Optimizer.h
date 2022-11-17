@@ -143,10 +143,9 @@ public:
 
     virtual std::string getTcnProject(const Pair &pair) = 0;
 
-    virtual void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) = 0;
+    virtual std::vector<std::string> getTcnPipeResource(const Pair &pair) = 0;
 
-    virtual void getTcnResourceSpec(const std::string &project,
-    std::map<std::string, double> &resourceConstraints) = 0;
+    virtual std::map<std::string, double> getTcnResourceSpec(const std::string &project) = 0;
 
     // Get the weighted throughput for the pair
     virtual void getThroughputInfo(const Pair &, const boost::posix_time::time_duration &,

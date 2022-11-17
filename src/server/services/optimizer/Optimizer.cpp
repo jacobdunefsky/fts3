@@ -158,7 +158,7 @@ void Optimizer::run(void)
 
         // Retrieve pair state
         std::map<Pair, PairState> aggregatedPairState;
-        
+
         // amount transferred per project per link
         std::map<std::pair<std::string, std::string>, double> transferredMap;
 
@@ -176,18 +176,18 @@ void Optimizer::run(void)
                 std::string project = dataSource->getTcnProject(*i);
                 auto limitsFound = resourceLimits.find(project);
                 if(limitsFound == resourceLimits.end()) {
-                    resourceLimits[project] = dataSource->getTcnResourceSpec();
+                    resourceLimits[project] = dataSource->getTcnResourceSpec(project);
                 }
 
-                std::vector<std::string> links = dataSource->getTcnPipeResource(*p);
+                std::vector<std::string> links = dataSource->getTcnPipeResource(*i);
                 if (newInterval) {
                     for(auto link = links.begin(); link != links.end(); link++){
-                        initialTransferred[std::pair<project,*link>] = dataSource->getTransferredInfo(*i, qosIntervalStart);
+                        initialTransferred[{project,*link}] = dataSource->getTransferredInfo(*i, qosIntervalStart);
                     }
                 }
                 else {
                     for(auto link = links.begin(); link != links.end(); link++){
-                        int64_t curTransferred = dataSource->getTransferredInfo(*i, qosIntervalStart) - initialTransferred[std::pair<project,*link>];
+                        int64_t curTransferred = dataSource->getTransferredInfo(*i, qosIntervalStart) - initialTransferred[{project,*link}];
                         uint64_t limit = resourceLimits[project][*link];
                         // multiply limit by 1024 to get MBps
                         if (curTransferred > qosInterval * limit * 1024 && limit != 0) {
