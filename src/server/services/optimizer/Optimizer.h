@@ -145,8 +145,7 @@ public:
 
     virtual void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) = 0;
 
-    virtual void getTcnResourceSpec(const std::string &project,
-    std::map<std::string, double> &resourceConstraints) = 0;
+    virtual double getTcnResourceSpec(const std::string &project) = 0;
 
     // Get the weighted throughput for the pair
     virtual void getThroughputInfo(const Pair &, const boost::posix_time::time_duration &,
@@ -216,8 +215,8 @@ protected:
     // throughput (time multiplexing)
     std::set<Pair> sleepingPipes;
     time_t qosIntervalStart; // beginning of the current resource interval
-    // amount transferred per project per link at beginning of qosInterval
-    std::map<std::pair<std::string, std::string>, int64_t> initialTransferred;
+    // amount transferred per project at beginning of qosInterval
+    std::map<std::pair<std::string>, int64_t> initialTransferred;
 
     // Run the optimization algorithm for the number of connections.
     // Returns true if a decision is stored

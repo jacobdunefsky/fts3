@@ -159,11 +159,8 @@ void Optimizer::run(void)
         // Retrieve pair state
         std::map<Pair, PairState> aggregatedPairState;
         
-        // amount transferred per project per link
-        std::map<std::pair<std::string, std::string>, double> transferredMap;
-
         // resource limits per project
-        std::map<std::string, std::map<std::string, double>> resourceLimits;
+        std::map<std::string, double> resourceLimits;
 
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Test run " << *i << " using traditional optimizer" << commit;
@@ -179,24 +176,19 @@ void Optimizer::run(void)
                     resourceLimits[project] = dataSource->getTcnResourceSpec();
                 }
 
-                std::vector<std::string> links = dataSource->getTcnPipeResource(*p);
                 if (newInterval) {
-                    for(auto link = links.begin(); link != links.end(); link++){
-                        initialTransferred[std::pair<project,*link>] = dataSource->getTransferredInfo(*i, qosIntervalStart);
-                    }
+					initialTransferred[project] = dataSource->getTransferredInfo(*i, qosIntervalStart);
                 }
                 else {
-                    for(auto link = links.begin(); link != links.end(); link++){
-                        int64_t curTransferred = dataSource->getTransferredInfo(*i, qosIntervalStart) - initialTransferred[std::pair<project,*link>];
-                        uint64_t limit = resourceLimits[project][*link];
-                        // multiply limit by 1024 to get MBps
-                        if (curTransferred > qosInterval * limit * 1024 && limit != 0) {
-                            // we've gone over our bandwidth limit
-                            // add to the set of sleeping pipes
-                            sleepingPipes.insert(*i);
-                            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
-                        }
-                    }
+					int64_t curTransferred = dataSource->getTransferredInfo(*i, qosIntervalStart) - initialTransferred[project];
+					uint64_t limit = resourceLimits[project];
+					// multiply limit by 1024 to get MBps
+					if (curTransferred > qosInterval * limit * 1024 && limit != 0) {
+						// we've gone over our bandwidth limit
+						// add to the set of sleeping pipes
+						sleepingPipes.insert(*i);
+						FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
+					}
                 }
             }
         }

@@ -229,8 +229,8 @@ public:
         return retval;
     }
 
-    std::map<std::string, double> getTcnResourceSpec(const std::string &project,  &resourceConstraints) {
-        std::map<std::string, double> retval;
+    double getTcnResourceSpec(const std::string &project) {
+        double retval = -1;
 
         soci::rowset<soci::row> specs = (sql.prepare <<
             "SELECT resc_id, max_usage from t_tcn_resource_ctrlspec "
@@ -238,10 +238,10 @@ public:
             soci::use(project, "proj_id"));
 
         for (auto i = specs.begin(); i != specs.end(); ++i) {
-            auto rescId = i->get<std::string>("resc_id");
             auto capacity = i->get<double>("max_usage");
+			// just take minimum of all of the resources
+			if(retval == -1 || (capacity >= 0 && capacity < retval)) retval = capacity;
 
-            retval[rescId] = capacity;
         }
         return retval;
     }

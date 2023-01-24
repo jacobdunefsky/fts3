@@ -130,17 +130,17 @@ int TCNOptimizer::expectInt(float input)
 }
 
 
-void TCNOptimizer::randomPermutation(std::map<Pair, PairState>& activePairs, std::map<Pair, int>& permutations)
+void TCNOptimizer::randomPerturbation(std::map<Pair, PairState>& activePairs, std::map<Pair, int>& perturbations)
 {
     std::map<Pair, PairState>::iterator it;
-    //std::map<Pair, int> permutations;
-    std::normal_distribution<double> distribution(0.0, permutationStd);
+    //std::map<Pair, int> perturbations;
+    std::normal_distribution<double> distribution(0.0, perturbationStd);
     for (it = activePairs.begin(); it != activePairs.end(); it++)
     {
-        permutations.insert(std::pair<Pair, int>(it->first, expectInt(distribution(generator))));
+        perturbations.insert(std::pair<Pair, int>(it->first, expectInt(distribution(generator))));
     }
 
-    //return &permutations;
+    //return &perturbations;
 }
 
 void TCNOptimizer::randomStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions)
@@ -148,20 +148,20 @@ void TCNOptimizer::randomStep(std::map<Pair, PairState> &conns, std::map<Pair, i
     cout << "random step:\n";
     decisions.clear();
     std::map<Pair, PairState>::iterator it;
-    std::map<Pair, int> permutations;
-    randomPermutation(conns, permutations);
+    std::map<Pair, int> perturbations;
+    randomPerturbation(conns, perturbations);
     for (it = conns.begin(); it != conns.end(); it++)
     {
-        permutations[it->first] += it->second.activeCount;
-        cout << "permutations: " << permutations[it->first] << std::endl;
+        perturbations[it->first] += it->second.activeCount;
+        cout << "perturbations: " << perturbations[it->first] << std::endl;
     }
 
-    boundDecision(permutations);
+    boundDecision(perturbations);
 
     for (it = conns.begin(); it != conns.end(); it++)
     {
-        //it->second.activeCount = *permutations[it->first];
-        decisions.insert(std::pair<Pair, int>(it->first, permutations[it->first]));
+        //it->second.activeCount = *perturbations[it->first];
+        decisions.insert(std::pair<Pair, int>(it->first, perturbations[it->first]));
     }
 
     return;
@@ -299,7 +299,7 @@ TCNOptimizer::TCNOptimizer(std::string penaltyMethod,
     int explorationDecaySteps,
     int decayStopLimit,
     int lastActiveChange,
-    float permutationStd,
+    float perturbationStd,
     float explorationDeclineCoeff
 )
 {
@@ -314,7 +314,7 @@ TCNOptimizer::TCNOptimizer(std::string penaltyMethod,
     TCNOptimizer::explorationDecaySteps = explorationDecaySteps;
     TCNOptimizer::decayStopLimit = decayStopLimit;
     TCNOptimizer::lastActiveChange = lastActiveChange;
-    TCNOptimizer::permutationStd = permutationStd;
+    TCNOptimizer::perturbationStd = perturbationStd;
     TCNOptimizer::explorationDeclineCoeff = explorationDeclineCoeff;
     TCNOptimizer::penaltyMethod = penaltyMethod;
     unsigned seedValue = std::chrono::system_clock::now().time_since_epoch().count();
