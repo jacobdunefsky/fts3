@@ -130,38 +130,44 @@ int TCNOptimizer::expectInt(float input)
 }
 
 
-void TCNOptimizer::randomPermutation(std::map<Pair, PairState>& activePairs, std::map<Pair, int>& permutations)
+void TCNOptimizer::randomPerturbation(std::map<Pair, PairState>& activePairs, std::map<Pair, int>& perturbations)
 {
     std::map<Pair, PairState>::iterator it;
-    //std::map<Pair, int> permutations;
-    std::normal_distribution<double> distribution(0.0, permutationStd);
+    //std::map<Pair, int> perturbations;
+    std::normal_distribution<double> distribution(0.0, perturbationStd);
     for (it = activePairs.begin(); it != activePairs.end(); it++)
     {
-        permutations.insert(std::pair<Pair, int>(it->first, expectInt(distribution(generator))));
+        perturbations.insert(std::pair<Pair, int>(it->first, expectInt(distribution(generator))));
     }
 
-    //return &permutations;
+    //return &perturbations;
 }
 
-void TCNOptimizer::randomStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions)
+void TCNOptimizer::randomStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions, std::set<Pair> sleepingPipes)
 {
     cout << "random step:\n";
     decisions.clear();
     std::map<Pair, PairState>::iterator it;
-    std::map<Pair, int> permutations;
-    randomPermutation(conns, permutations);
+    std::map<Pair, int> perturbations;
+    randomPerturbation(conns, perturbations);
     for (it = conns.begin(); it != conns.end(); it++)
     {
-        permutations[it->first] += it->second.activeCount;
-        cout << "permutations: " << permutations[it->first] << std::endl;
+        perturbations[it->first] += it->second.activeCount;
+        cout << "perturbations: " << perturbations[it->first] << std::endl;
     }
 
-    boundDecision(permutations);
+    boundDecision(perturbations);
 
     for (it = conns.begin(); it != conns.end(); it++)
     {
-        //it->second.activeCount = *permutations[it->first];
-        decisions.insert(std::pair<Pair, int>(it->first, permutations[it->first]));
+        //it->second.activeCount = *perturbations[it->first];
+		int decision = 0;
+		auto f = sleepingPipes.find(it->first);
+		if(f == sleepingPipes.end()) {
+			// pipe is not sleeping, make a decision
+        	decision = perturbations[it->first];
+		}
+        decisions.insert(std::pair<Pair, int>(it->first, decision));
     }
 
     return;
@@ -184,7 +190,7 @@ float TCNOptimizer::alphaT()
                 min(float(stepCount - lastActiveChange)/float(decayStopLimit), 1.0f));
 }
 
-void TCNOptimizer::gradientStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions)
+void TCNOptimizer::gradientStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions, std::set<Pair> sleepingPipes)
 {
     cout << "gradient step" << std::endl << std::endl;
     std::map<Pair, PairState>::iterator it;
@@ -198,7 +204,12 @@ void TCNOptimizer::gradientStep(std::map<Pair, PairState> &conns, std::map<Pair,
         /*momentums[it->first] = \
             tmpAlpha * gradients[it->first] + eta * momentums[it->first];*/
         cout << "gradient: " << gradients[it->first] << " momentum: " << momentums[it->first] << std::endl;
-        int decision = expectInt(momentums[it->first] + it->second.activeCount);
+		int decision = 0;
+		auto f = sleepingPipes.find(it->first);
+		if(f == sleepingPipes.end()) {
+			// pipe is not sleeping, make a decision
+        	decision = expectInt(momentums[it->first] + it->second.activeCount);
+		}
         decisions.insert(std::pair<Pair, int>(it->first, min(max(minOpt, decision), maxOpt)));
         // it->second.activeCount = decision;
     }
@@ -299,7 +310,7 @@ TCNOptimizer::TCNOptimizer(std::string penaltyMethod,
     int explorationDecaySteps,
     int decayStopLimit,
     int lastActiveChange,
-    float permutationStd,
+    float perturbationStd,
     float explorationDeclineCoeff
 )
 {
@@ -314,7 +325,7 @@ TCNOptimizer::TCNOptimizer(std::string penaltyMethod,
     TCNOptimizer::explorationDecaySteps = explorationDecaySteps;
     TCNOptimizer::decayStopLimit = decayStopLimit;
     TCNOptimizer::lastActiveChange = lastActiveChange;
-    TCNOptimizer::permutationStd = permutationStd;
+    TCNOptimizer::perturbationStd = perturbationStd;
     TCNOptimizer::explorationDeclineCoeff = explorationDeclineCoeff;
     TCNOptimizer::penaltyMethod = penaltyMethod;
     unsigned seedValue = std::chrono::system_clock::now().time_since_epoch().count();
@@ -336,7 +347,7 @@ float TCNOptimizer::objective(std::map<Pair, PairState> &connStates)
     return obj;
 }
 
-void TCNOptimizer::step(std::map<Pair, PairState> &activeTCNPipes, std::map<Pair, int> &decisions)
+void TCNOptimizer::step(std::map<Pair, PairState> &activeTCNPipes, std::map<Pair, int> &decisions, std::set<Pair> sleepingPipes)
 {
     // check if active pipes have changed
     std::set<Pair> currentActives;
@@ -360,9 +371,9 @@ void TCNOptimizer::step(std::map<Pair, PairState> &activeTCNPipes, std::map<Pair
     //do the step
     // std::map<Pair, int> *decisions;
     if (explorationDecision() == true) {
-        randomStep(activeTCNPipes, decisions);
+        randomStep(activeTCNPipes, decisions, sleepingPipes);
     } else {
-        gradientStep(activeTCNPipes, decisions);
+        gradientStep(activeTCNPipes, decisions, sleepingPipes);
     }
     //update last states
     lastState.clear();

@@ -113,7 +113,12 @@ PairState Optimizer::getPairState(const Pair &pair, bool timeMultiplexing, bool 
             start -= qosInterval;
         }
         double curTransferredBytes = dataSource->getTransferredInfo(pair, start);
-        current.throughput = curTransferredBytes / (current.timestamp - start);
+        //current.throughput = curTransferredBytes / (current.timestamp - start);
+		//below line fixes an issue with throughput measurement
+		//our resource guarantees involve the average throughput over the QoS interval
+		//as such, if we measure throughput as below, then this reflects the resource guarantees better
+		//note, however, that this will make throughput appear lower than expected
+        current.throughput = curTransferredBytes / qosInterval;
     }
 
     int lastDecision = dataSource->getOptimizerValue(pair);
@@ -186,7 +191,7 @@ void Optimizer::run(void)
                 }
                 else {
                     for(auto link = links.begin(); link != links.end(); link++){
-                        int64_t curTransferred = dataSource->getTransferredInfo(*i, qosIntervalStart) - initialTransferred[std::pair<project,*link>];
+                        int64_t curTransferred = dataSource->getBytesToTransferInfo(*i, qosIntervalStart) - initialTransferred[std::pair<project,*link>];
                         uint64_t limit = resourceLimits[project][*link];
                         // multiply limit by 1024 to get MBps
                         if (curTransferred > qosInterval * limit * 1024 && limit != 0) {
@@ -233,7 +238,7 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
     std::map<Pair, int> decisions;
     std::map<Pair, DecisionState> decisionVector;
 
-    tcnOptimizer->step(aggregatedPairState, decisions);
+    tcnOptimizer->step(aggregatedPairState, decisions, sleepingPipes);
 
     for (auto it = decisions.begin(); it != decisions.end(); ++it) {
         auto pair = it->first;

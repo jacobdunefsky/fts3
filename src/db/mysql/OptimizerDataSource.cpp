@@ -304,6 +304,45 @@ public:
         return totalBytes;
     }
 
+	// gets number of bytes scheduled to be transferred within a given window
+	// this includes bytes that have not yet been transferred
+	int64_t getBytesToTransferInfo(const Pair &pair, time_t windowStart) {
+        static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+        time_t now = time(NULL);
+        time_t total_seconds = now - windowStart;
+
+        soci::rowset<soci::row> transfers =
+            (sql.prepare
+                 << "SELECT filesize "
+                    " FROM t_file "
+                    " WHERE "
+                    "   source_se = :sourceSe AND dest_se = :destSe AND "
+                    "   vo_name = :voName AND "
+                    "file_state = 'ACTIVE' "
+                    "UNION ALL "
+                    "SELECT filesize "
+                    " FROM t_file USE INDEX(idx_finish_time)"
+                    " WHERE "
+                    "   source_se = :sourceSe AND dest_se = :destSe "
+                    "   AND vo_name = :voName "
+                    "   AND file_state IN ('FINISHED', 'ARCHIVING') AND "
+                    "finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval "
+                    "SECOND)",
+             soci::use(pair.source, "sourceSe"),
+             soci::use(pair.destination, "destSe"),
+             soci::use(pair.vo, "voName"),
+             soci::use(total_seconds, "interval"));
+
+        int64_t totalBytes = 0;
+
+        for (auto j = transfers.begin(); j != transfers.end(); ++j) {
+            auto filesize = j->get<long long>("filesize", 0.0);
+            totalBytes += filesize;
+        }
+        return totalBytes;
+    }
+
     // returns throughput limits per project per link
     double getTputLimits(std::string projId, std::string plinkId)
     {

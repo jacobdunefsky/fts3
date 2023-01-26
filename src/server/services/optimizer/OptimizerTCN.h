@@ -17,7 +17,7 @@ class TCNOptimizer {
         int explorationDecaySteps;
         int decayStopLimit;
         int lastActiveChange;
-        float permutationStd;
+        float perturbationStd;
         float explorationDeclineCoeff;
         std::string penaltyMethod;
         std::map<Pair, double> gradients;
@@ -41,7 +41,7 @@ class TCNOptimizer {
 
         bool listsAreEqual(std::set<Pair>& lhs, std::map<Pair, PairState>& rhs, std::set<Pair>& rhsSet);
 
-        void randomPermutation(std::map<Pair, PairState>& activePairs, std::map<Pair, int>& permutations);
+        void randomPerturbation(std::map<Pair, PairState>& activePairs, std::map<Pair, int>& perturbations);
 
         void randomStep(std::map<Pair, PairState> &conns, std::map<Pair, int> &decisions);
 
@@ -72,7 +72,7 @@ class TCNOptimizer {
             int explorationDecaySteps = 500,
             int decayStopLimit = 4000,
             int lastActiveChange = 0,
-            float permutationStd = 0.5,
+            float perturbationStd = 0.5,
             float explorationDeclineCoeff = 500
         );
 
