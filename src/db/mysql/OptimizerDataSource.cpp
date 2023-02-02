@@ -231,6 +231,24 @@ public:
         return retval;
     }
 
+	std::map<std::string, double> getTcnPipeBound(const Pair &pair) {
+        std::map<std::string, double> retval;
+
+        soci::rowset<soci::row> specs = (sql.prepare <<
+            "SELECT resc_id, max_usage from t_bound "
+            " WHERE source_se = :source AND dest_se = :dest_se AND vo_name = :vo_name",
+            soci::use(pair.source),soci::use(pair.destination),soci::use(pair.vo));
+
+        for (auto i = specs.begin(); i != specs.end(); ++i) {
+            auto rescId = i->get<std::string>("resc_id");
+            auto capacity = i->get<double>("max_usage");
+
+            retval[rescId] = capacity;
+        }
+        return retval;
+    }
+
+
     std::map<std::string, double> getTcnResourceSpec(const std::string &project) {
         std::map<std::string, double> retval;
 
