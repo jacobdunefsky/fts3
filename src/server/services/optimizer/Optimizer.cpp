@@ -113,12 +113,9 @@ PairState Optimizer::getPairState(const Pair &pair, bool timeMultiplexing, bool 
             start -= qosInterval;
         }
         double curTransferredBytes = dataSource->getTransferredInfo(pair, start);
-        //current.throughput = curTransferredBytes / (current.timestamp - start);
-		//below line fixes an issue with throughput measurement
-		//our resource guarantees involve the average throughput over the QoS interval
-		//as such, if we measure throughput as below, then this reflects the resource guarantees better
-		//note, however, that this will make throughput appear lower than expected
-        current.throughput = curTransferredBytes / qosInterval;
+		current.transferredBytesStart = start;
+		current.transferredBytes = curTransferredBytes;
+        current.throughput = curTransferredBytes / (current.timestamp - start);
     }
 
     int lastDecision = dataSource->getOptimizerValue(pair);
@@ -151,7 +148,6 @@ void Optimizer::run(void)
             // we have ended our resource interval
             // time to start a new one
             newInterval = true;
-            sleepingPipes.clear();
             qosIntervalStart = now;
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: new QoS innterval starts" << commit;
         }
@@ -166,8 +162,8 @@ void Optimizer::run(void)
         // amount transferred per project per link
         std::map<std::pair<std::string, std::string>, double> transferredMap;
 
-        // resource limits per project
-        std::map<std::string, std::map<std::string, double>> resourceLimits;
+        // resource limits per pipe
+        std::map<Pair, std::map<std::string, double>> resourceLimits;
 
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Test run " << *i << " using traditional optimizer" << commit;
@@ -177,31 +173,24 @@ void Optimizer::run(void)
                 FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
 
                 aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
-                std::string project = dataSource->getTcnProject(*i);
-                auto limitsFound = resourceLimits.find(project);
+                auto limitsFound = resourceLimits.find(*i);
                 if(limitsFound == resourceLimits.end()) {
-                    resourceLimits[project] = dataSource->getTcnResourceSpec();
+                    resourceLimits[*i] = dataSource->getTcnPipeBound(*i);
                 }
-
-                std::vector<std::string> links = dataSource->getTcnPipeResource(*p);
-                if (newInterval) {
-                    for(auto link = links.begin(); link != links.end(); link++){
-                        initialTransferred[std::pair<project,*link>] = dataSource->getTransferredInfo(*i, qosIntervalStart);
-                    }
-                }
-                else {
-                    for(auto link = links.begin(); link != links.end(); link++){
-                        int64_t curTransferred = dataSource->getBytesToTransferInfo(*i, qosIntervalStart) - initialTransferred[std::pair<project,*link>];
-                        uint64_t limit = resourceLimits[project][*link];
-                        // multiply limit by 1024 to get MBps
-                        if (curTransferred > qosInterval * limit * 1024 && limit != 0) {
-                            // we've gone over our bandwidth limit
-                            // add to the set of sleeping pipes
-                            sleepingPipes.insert(*i);
-                            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
-                        }
-                    }
-                }
+				double resourceLimit = -1;
+                std::vector<std::string> links = dataSource->getTcnPipeResource(*i);
+				// get minimum resource limit over all links traversed by pipe
+				for(auto link = links.begin(); link != links.end(); link++){
+					auto linkFound = resourceLimits[*i].find(*link);
+					if(linkFound != resourceLimits[*i].end()){
+						double curLimit = resourceLimits[*i][*link];	
+						if(resourceLimit != -1 && curLimit < resourceLimit){
+							resourceLimit = curLimit;
+						}
+					}
+				}
+				// update pair state with resource limit
+				aggregatedPairState[*i].resourceLimit = resourceLimit;
             }
         }
 
@@ -238,7 +227,7 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
     std::map<Pair, int> decisions;
     std::map<Pair, DecisionState> decisionVector;
 
-    tcnOptimizer->step(aggregatedPairState, decisions, sleepingPipes);
+    tcnOptimizer->step(aggregatedPairState, decisions);
 
     for (auto it = decisions.begin(); it != decisions.end(); ++it) {
         auto pair = it->first;
@@ -273,15 +262,6 @@ std::map<Pair, DecisionState> Optimizer::runNaiveTCNOptimizer(std::map<Pair, Pai
         int decision = 0;
         std::stringstream rationale;
 
-        bool sleeping = false;
-
-        // Check if the pipe is sleeping
-        auto f = sleepingPipes.find(pair);
-        if (f != sleepingPipes.end()) {
-            sleeping = true;
-            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << pair << " is sleeping..." << commit;
-        }
-
         // Optimizer working values
         Range range;
         StorageLimits limits;
@@ -292,12 +272,7 @@ std::map<Pair, DecisionState> Optimizer::runNaiveTCNOptimizer(std::map<Pair, Pai
         DecisionState decisionInfo(current);
 
         // There is no value yet. In this case, pick the high value if configured, mid-range otherwise.
-        if (sleeping) {
-            rationale << "Sleep because of time multiplexing. Not start any new transfers";
-            decisionInfo.decision = 0;
-            decisionInfo.diff = 0 - lastDecision;
-            decisionInfo.rationale = rationale.str();
-        } else if (lastDecision == 0) {
+        if (lastDecision == 0) {
             if (range.specific) {
                 decision = range.max;
                 rationale << "No information. Use configured range max.";

@@ -71,10 +71,13 @@ void TCNOptimizer::gradientEstimate(std::map<Pair, PairState> &current)
    } else {
        float norm2C = norm2(current);
        cout << "norm2c:\t" << norm2C << endl;
-       float utilityDiff = (getUtility(current) - getUtility(lastState)) / norm2C;
+       /*float utilityDiff = (getUtility(current) - getUtility(lastState)) / norm2C;
        cout << "utility diff:\t" << utilityDiff << endl;
        cout << "penalty:\t" << aggregatedBarrierPenalty(current) << std::endl;
-       cout << "penalty:\t" << aggregatedBarrierPenalty(lastState) << std::endl;
+       cout << "penalty:\t" << aggregatedBarrierPenalty(lastState) << std::endl;*/
+
+	   // use atm
+	   float utilityDiff = (getAtmUtility(current) - getAtmUtility(lastState)) / norm2C;
        for (it = current.begin(); it != current.end(); it++) {
            float pDerivative = utilityDiff * (it->second.activeCount - lastState[it->first].activeCount);
            gradients.insert(std::pair<Pair, float>(it->first, pDerivative));
@@ -205,11 +208,7 @@ void TCNOptimizer::gradientStep(std::map<Pair, PairState> &conns, std::map<Pair,
             tmpAlpha * gradients[it->first] + eta * momentums[it->first];*/
         cout << "gradient: " << gradients[it->first] << " momentum: " << momentums[it->first] << std::endl;
 		int decision = 0;
-		auto f = sleepingPipes.find(it->first);
-		if(f == sleepingPipes.end()) {
-			// pipe is not sleeping, make a decision
-        	decision = expectInt(momentums[it->first] + it->second.activeCount);
-		}
+		decision = expectInt(momentums[it->first] + it->second.activeCount);
         decisions.insert(std::pair<Pair, int>(it->first, min(max(minOpt, decision), maxOpt)));
         // it->second.activeCount = decision;
     }
@@ -347,6 +346,33 @@ float TCNOptimizer::objective(std::map<Pair, PairState> &connStates)
     return obj;
 }
 
+// objective now uses tau instead of throughput
+float TCNOptimizer::atmObjective(std::map<Pair, PairState> &connStates)
+{
+    // return std::accumulate(thrs.begin(), thrs.end(), 0.0f);
+    std::map<Pair, PairState>::iterator it;
+    float obj = 0.0f;
+    for (it = connStates.begin(); it != connStates.end(); it++) {
+        obj += it->second.transferredBytes;
+    }
+    return obj;
+}
+
+float TCNOptimizer::atmPenalty(std::map<Pair, PairState> &conns)
+{
+    float diff = 0.0f;
+
+    for (auto it = conns.begin(); it != conns.end(); it++) {
+		PairState state = it->second;
+		if (state.resourceLimit >= 0) {
+			diff -= pow(state.throughput-state.resourceLimit, 2)
+		}
+    }
+
+    return diff;
+}
+
+
 void TCNOptimizer::step(std::map<Pair, PairState> &activeTCNPipes, std::map<Pair, int> &decisions, std::set<Pair> sleepingPipes)
 {
     // check if active pipes have changed
@@ -391,6 +417,11 @@ float TCNOptimizer::getUtility(std::map<Pair, PairState> &connStates)
 {
     return objective(connStates) + omega * aggregatedBarrierPenalty(connStates);
 }
+float TCNOptimizer::getAtmUtility(std::map<Pair, PairState> &connStates)
+{
+    return atmObjective(connStates) + omega * atmPenalty(connStates);
+}
+
 
 void TCNOptimizer::setConditionForPair(Pair pair, float limit)
 {

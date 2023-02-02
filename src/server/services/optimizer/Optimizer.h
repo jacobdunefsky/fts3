@@ -86,6 +86,11 @@ struct StorageLimits {
 struct PairState {
     time_t timestamp;
     double throughput;
+
+	double transferredBytes;
+	time_t transferredBytesStart;
+
+	double resourceLimit;
     time_t avgDuration;
     double successRate;
     int retryCount;
@@ -217,7 +222,7 @@ protected:
     std::set<Pair> sleepingPipes;
     time_t qosIntervalStart; // beginning of the current resource interval
 	// initial number of bytes transferred per project per link
-    std::map<std::pair<std::string, std::string>, int64_t> initialTransferred;
+    std::map<std::pair<Pair, std::string>, int64_t> initialTransferred;
 
     // Run the optimization algorithm for the number of connections.
     // Returns true if a decision is stored
