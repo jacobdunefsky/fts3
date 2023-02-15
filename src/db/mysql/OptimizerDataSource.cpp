@@ -284,11 +284,10 @@ public:
 
                 Pair currentpair(source_se, dest_se, "");
 
-                auto idx = measureMap.find(resc_id);
+                auto idx = measureMap.find(currentpair);
                 if (idx == measureMap.end()) 
                 {
                     // not found
-                    std::vector<Pair> vect{currentpair}; 
                     measureMap.insert(std::pair<Pair, long long>(currentpair, bytesInWindow));
                 } 
                 else 
