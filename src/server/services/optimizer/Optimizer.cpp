@@ -33,7 +33,7 @@ namespace fts3 {
 namespace optimizer {
 
 
-Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer, time_t qosInterval, double defaultBwLimit):
+Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNEventLoop *tcnOptimizer, time_t qosInterval, double defaultBwLimit):
     dataSource(ds), callbacks(callbacks), tcnOptimizer(tcnOptimizer),
     optimizerSteadyInterval(boost::posix_time::seconds(60)), maxNumberOfStreams(10),
     maxSuccessRate(100), lowSuccessRate(97), baseSuccessRate(96),
@@ -113,7 +113,12 @@ PairState Optimizer::getPairState(const Pair &pair, bool timeMultiplexing, bool 
             start -= qosInterval;
         }
         double curTransferredBytes = dataSource->getTransferredInfo(pair, start);
-        current.throughput = curTransferredBytes / (current.timestamp - start);
+        //current.throughput = curTransferredBytes / (current.timestamp - start);
+		//below line fixes an issue with throughput measurement
+		//our resource guarantees involve the average throughput over the QoS interval
+		//as such, if we measure throughput as below, then this reflects the resource guarantees better
+		//note, however, that this will make throughput appear lower than expected
+        current.throughput = curTransferredBytes / qosInterval;
     }
 
     int lastDecision = dataSource->getOptimizerValue(pair);
@@ -146,8 +151,8 @@ void Optimizer::run(void)
             // we have ended our resource interval
             // time to start a new one
             newInterval = true;
-            sleepingPipes.clear();
             qosIntervalStart = now;
+			tcnOptimizer->newQosInterval(now);
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: new QoS innterval starts" << commit;
         }
 
@@ -156,83 +161,18 @@ void Optimizer::run(void)
         // See FTS-1094
         pairs.sort();
 
-        std::map<string, std::list<Pair>> pairsOfProject;
-
         // Retrieve pair state
         std::map<Pair, PairState> aggregatedPairState;
+        // amount transferred per project per link
+        std::map<std::pair<std::string, std::string>, double> transferredMap;
+
+        // resource limits per project
+        std::map<std::string, std::map<std::string, double>> resourceLimits;
+
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
-            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Test run " << *i << " using traditional optimizer" << commit;
-            auto optMode = runOptimizerForPair(*i);
-            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer mode of " << *i << ": " << optMode << commit;
-            if (optMode == kOptimizerAggregated) {
-                FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
+			FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
 
-                aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
-
-                std::string project = dataSource->getTcnProject(*i);
-
-                FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "TCN Control: put pipe " << *i << " to project "
-                    << project << commit;
-                pairsOfProject[project].push_back(*i);
-            }
-        }
-
-        if (!newInterval) {
-            for (auto it = pairsOfProject.begin(); it != pairsOfProject.end(); ++it) {
-                auto project = it->first;
-                auto projectPairs = it->second;
-
-                std::map<std::string, double> resourceLimits;
-                dataSource->getTcnResourceSpec(project, resourceLimits);
-
-                FTS3_COMMON_LOGGER_NEWLOG(DEBUG)
-                    << "TCN Control: getting TCN resource control spec for project "
-                    << project << commit;
-
-                std::map<std::string, std::list<Pair>> resourcePairs;
-
-                for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
-                    std::vector<std::string> usedResources;
-                    dataSource->getTcnPipeResource(*p, usedResources);
-
-                    for (auto resc = usedResources.begin(); resc != usedResources.end(); ++resc) {
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "TCN Control: getting TCN resource usage: "
-                            << project << " | " << *p << " (" << p->vo << ") uses resource "
-                            << *resc << commit;
-                        resourcePairs[*resc].push_back(*p);
-                    }
-                }
-
-                bool sleeping = false;
-
-                for (auto rl = resourceLimits.begin(); rl != resourceLimits.end(); ++rl) {
-                    auto resc = rl->first;
-                    double bwLimit = rl->second / 1024;
-                    auto pairsUsingResource = resourcePairs[resc];
-
-                    double actualMBps = 0;
-                    for (auto p = pairsUsingResource.begin(); p != pairsUsingResource.end(); ++p) {
-                        actualMBps += aggregatedPairState[*p].throughput / 1024 / 1024;
-                    }
-
-                    if (actualMBps > bwLimit) {
-                        sleeping = true;
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: project " << project
-                            << " exceeds limit on resource " << resc
-                            << " (target: " << bwLimit << " MB/s, actual: " << actualMBps << " MB/s),"
-                            << " all pipes of the project will sleep." << commit;
-                        break;
-                    }
-                }
-
-                if (sleeping) {
-                    for (auto p = projectPairs.begin(); p != projectPairs.end(); ++p) {
-                        sleepingPipes.insert(*p);
-                        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *p
-                            << " in project " << project << " is sleeping." << commit;
-                    }
-                }
-            }
+			aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
         }
 
         // Start ticking!
@@ -247,11 +187,6 @@ void Optimizer::run(void)
         else {
             decisionVector = runTCNOptimizer(aggregatedPairState);
         }
-
-        // for(auto sleepingPipe = sleepingPipes.begin(); sleepingPipe != sleepingPipes.end(); sleepingPipe++){
-            // set decision for sleeping pipes to zero
-            // decisionVector[*sleepingPipe] = 0;
-        // }
 
         boost::timer::cpu_times const elapsed(timer.elapsed());
         FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Global time elapsed: " << elapsed.system << ", " << elapsed.user << commit;
@@ -273,7 +208,7 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
     std::map<Pair, int> decisions;
     std::map<Pair, DecisionState> decisionVector;
 
-    tcnOptimizer->step(aggregatedPairState, decisions);
+    decisions = tcnOptimizer->step();
 
     for (auto it = decisions.begin(); it != decisions.end(); ++it) {
         auto pair = it->first;
