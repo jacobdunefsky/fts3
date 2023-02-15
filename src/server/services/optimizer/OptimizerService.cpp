@@ -35,6 +35,7 @@ namespace server {
 using optimizer::Optimizer;
 using optimizer::OptimizerCallbacks;
 using optimizer::PairState;
+using optimizer::TCNEventLoop;
 
 class OptimizerNotifier : public OptimizerCallbacks {
 protected:
@@ -59,7 +60,7 @@ public:
 
         msg.source_se = pair.source;
         msg.dest_se = pair.destination;
-		msg.vo = pair.vo;
+		msg.vo_name = pair.vo;
 
         msg.timestamp = millisecondsSinceEpoch();
 
