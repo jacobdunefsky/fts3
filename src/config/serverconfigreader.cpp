@@ -507,6 +507,14 @@ po::options_description ServerConfigReader::_defineConfigOptions()
         po::value<std::string>( &(_vars["TCNDefaultBwLimit"]) )->default_value("25"),
         "Set default resource control limit for TCN optimizer in KB/s"
     )
+    (   "TCNEstTime",
+        po::value<std::string>( &(_vars["TCNEstTime"]) )->default_value("4"),
+        "Set estimation time for time multiplexing in TCN optimizer"
+    )
+    (   "TCNConvergeVariance",
+        po::value<std::string>( &(_vars["TCNConvergeVariance"]) )->default_value("2"),
+        "Set threshold for throughput measurement by TCN optimizer in KB/s"
+    )
     ;
 
     return config;
