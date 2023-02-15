@@ -37,7 +37,7 @@ public:
 	std::time_t qosIntervalStartTime;
 
     //Data source 
-    OptimizerDataSource *ds;
+    OptimizerDataSource *dataSource;
 	// constants
 
 	// if throughput variance is less than this, then our estimation
