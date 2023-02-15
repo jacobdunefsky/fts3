@@ -23,6 +23,7 @@
 #include "OptimizerConstants.h"
 #include "common/Exceptions.h"
 #include "common/Logger.h"
+#include "common/panic.h"
 
 #include <time.h>
 
@@ -198,6 +199,8 @@ void Optimizer::run(void)
         applyDecisions(decisionVector, timer);
     }
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {

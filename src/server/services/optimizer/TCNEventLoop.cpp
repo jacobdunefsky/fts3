@@ -37,6 +37,8 @@ Pair TCNEventLoop::choosePertPair(ThroughputVector n){
 		return it->first;
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
@@ -83,6 +85,8 @@ ThroughputVector TCNEventLoop::calculateTau(int index) {
 		return retval;
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
