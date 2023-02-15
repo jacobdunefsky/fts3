@@ -30,6 +30,8 @@ void TCNEventLoop::setOptimizerDecision(ConcurrencyVector n){
 
 Pair TCNEventLoop::choosePertPair(ThroughputVector n){
 	try {
+		Pair p("", "", "");
+		if(n.size() == 0) return p;
 		auto it = n.begin();
 		std::advance(it, std::rand() % n.size());
 		return it->first;
@@ -369,6 +371,18 @@ ConcurrencyVector TCNEventLoop::step(){
 		// get active concurrency vectors
 		prev_n = cur_n;
 		dataSource->getActiveConcurrencyVector(cur_n);
+
+		if(cur_n.size() == 0){
+			// if no active connections scheduled, then set every pipe to 1 connection
+			std::list<Pair> pairs = dataSource->getActivePairs();
+			// Make sure the order is always the same
+			// See FTS-1094
+			pairs.sort();
+			for(auto it = pairs.begin(); it != pairs.end(); it++){
+				cur_n[*it] = 1;
+			}
+			return cur_n;
+		}
 
 		// get measurements
 		TCNMeasureInfo measureInfo;
