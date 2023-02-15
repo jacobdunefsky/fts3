@@ -8,9 +8,6 @@
 
 #include "TCNEventLoop.h"
 
-using namespace fts3::common;
-using namespace fts3::config;
-
 namespace fts3 {
 namespace optimizer {
 
@@ -18,7 +15,7 @@ TCNEventLoop::TCNEventLoop(OptimizerDataSource *ds,
 	double convergeVariance_,
 	std::time_t estTOldMinTime_,
 	TCNEventPhase phase_) : 
-	dataSoruce(ds), convergeVariance(convergeVariance_), estTOldMinTime(estTOldMinTime_), phase(phase_)
+	dataSource(ds), convergeVariance(convergeVariance_), estTOldMinTime(estTOldMinTime_), phase(phase_), pertPair("", "", "")
 {
 }
 
@@ -61,7 +58,7 @@ ThroughputVector TCNEventLoop::calculateTau(int index) {
 		if(firstMeasure.bytesSentVector.count(curPair) > 0) {
 			// due to assumptions, the else case should never happen
 			// but good to be safe anyway :)
-			std::time_t intervalLength = lastMeasure.measure_time - firstMeasure.measure_time;;
+			std::time_t intervalLength = lastMeasure.measureTime - firstMeasure.measureTime;;
 			double firstTransferred = firstMeasure.bytesSentVector[curPair];
 			retval[curPair] = lastTransferred - firstTransferred;
 		}
@@ -106,7 +103,7 @@ ThroughputVector TCNEventLoop::calculateTput(int index) {
 		if(firstMeasure.bytesSentVector.count(curPair) > 0) {
 			// due to assumptions, the else case should never happen
 			// but good to be safe anyway :)
-			std::time_t intervalLength = lastMeasure.measure_time - firstMeasure.measure_time;;
+			std::time_t intervalLength = lastMeasure.measureTime - firstMeasure.measureTime;;
 			double firstTransferred = firstMeasure.bytesSentVector[curPair];
 			retval[curPair] = (lastTransferred - firstTransferred)/((double)intervalLength) ;
 		}
@@ -288,7 +285,7 @@ ThroughputVector TCNEventLoop::constructTargetTput(){
 	return lowerBound;
 }
 
-void newQosInterval(std::time start) {
+void TCNEventLoop::newQosInterval(std::time start) {
 	phase = TCNEventPhase::estTOld;
 	measureInfos.clear();
 	qosIntervalStartTime = start; 
