@@ -277,7 +277,7 @@ ConcurrencyVector TCNEventLoop::gradStep(){
 
 ThroughputVector TCNEventLoop::constructTargetTput(){
 	ThroughputVector lowerBound;
-	dataSource->getPairsLowerbound(&lowerBound);
+	dataSource->getPairsLowerbound(lowerBound);
 	// no lower bound for non-backlogged pipes
 	for(auto it = lowerBound.begin(); it != lowerBound.end(); it++){
 		if(!dataSource->isBacklogged(it->first)) { lowerBound[it->first] = 0; }
@@ -296,13 +296,14 @@ ConcurrencyVector TCNEventLoop::step(){
 
 	// get active concurrency vectors
 	prev_n = cur_n;
-	dataSource->getActiveConcurrencyVectors(&cur_n);
+	dataSource->getActiveConcurrencyVector(cur_n);
 
 	// get measurements
 	TCNMeasureInfo measureInfo;
-	dataSource->getTransferredBytes(&measureInfo.bytesSentVector, qosIntervalStartTime);
+	dataSource->getTransferredBytes(measureInfo.bytesSentVector, qosIntervalStartTime);
 	measureInfo.measureTime = std::time(NULL);
 	measureInfos.push_back(measureInfo);
+    double variance; 
 
 	switch(phase){
 	case TCNEventPhase::estTOld:
@@ -320,7 +321,7 @@ ConcurrencyVector TCNEventLoop::step(){
 			break;
 		}
 	
-		double variance = calculateTputVariance();
+		variance = calculateTputVariance();
 		if(variance < convergeVariance &&
 			std::time(NULL)-epochStartTime > estTOldMinTime){
 
@@ -355,7 +356,7 @@ ConcurrencyVector TCNEventLoop::step(){
 			break;
 		}
 
-		double variance = calculateTputVariance();
+		variance = calculateTputVariance();
 		if(variance < convergeVariance){
 			// we have converged
 			T_new = calculateTput(-1);
