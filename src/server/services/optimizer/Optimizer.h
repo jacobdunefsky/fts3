@@ -147,7 +147,7 @@ public:
 
     virtual void getTransferredBytes(std::map<Pair, long long> &measureMap, time_t windowStart) = 0;
 
-    virtual void void getActiveConcurrencyVector(std::map<Pair, unsigned int> &ConcurrencyVector) = 0;
+    virtual void getActiveConcurrencyVector(std::map<Pair, unsigned int> &ConcurrencyVector) = 0;
 
     virtual bool isBacklogged(const Pair &pair) = 0; 
     // Get configured limits
