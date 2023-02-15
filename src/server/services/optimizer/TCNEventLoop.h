@@ -9,8 +9,8 @@
 
 #include "Optimizer.h"
 
-enum class TCNEventPhase = {estTOld, estTNew, adjust};
-enum class TCNEventType = {measureUpdate, fileFinish};
+enum class TCNEventPhase {estTOld, estTNew, adjust};
+enum class TCNEventType {measureUpdate, fileFinish};
 
 typedef std::map<Pair, int> ConcurrencyVector;
 typedef std::map<Pair, double> ThroughputVector;
@@ -71,9 +71,9 @@ public:
 	);
 	ConcurrencyVector gradStep();
 	ThroughputVector constructTargetTput();
-	void newQosInterval(std::time start);
+	void newQosInterval(std::time_t start);
 	void setOptimizerDecision(ConcurrencyVector n);
 	ConcurrencyVector step(TCNEventType type);
-}
+};
 
 #endif
