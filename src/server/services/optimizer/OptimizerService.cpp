@@ -116,7 +116,7 @@ void OptimizerService::runService()
         TCNEventLoop tcnOptimizerInstance(
 			db::DBSingleton::instance().getDBObjectInstance()->getOptimizerDataSource(),
             config::ServerConfig::instance().get<double>("TCNConvergeVariance"),
-            config::ServerConfig::instance().get<time_t>("TCNEstTime"),
+            config::ServerConfig::instance().get<time_t>("TCNEstTime")
         );
         tcnOptimizer = &tcnOptimizerInstance;
     }
