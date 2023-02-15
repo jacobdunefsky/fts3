@@ -205,14 +205,14 @@ void Optimizer::run(void)
 
 std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairState> aggregatedPairState)
 {
-    std::map<Pair, int> decisions;
+    std::map<Pair, unsigned int> decisions;
     std::map<Pair, DecisionState> decisionVector;
 
     decisions = tcnOptimizer->step();
 
     for (auto it = decisions.begin(); it != decisions.end(); ++it) {
         auto pair = it->first;
-        int decision = it->second;
+        int decision = (int)it->second;
         int lastDecision = dataSource->getOptimizerValue(pair);
         auto current = aggregatedPairState[pair];
 
