@@ -122,7 +122,6 @@ struct DecisionState {
 };
 
 //#include "OptimizerTCN.h"
-#include "TCNEventLoop.h"
 
 // To decouple the optimizer core logic from the data storage/representation
 class OptimizerDataSource {
@@ -182,6 +181,8 @@ public:
     virtual void notifyDecision(const Pair &pair, int decision, const PairState &current,
         int diff, const std::string &rationale) = 0;
 };
+
+#include "TCNEventLoop.h"
 
 // Optimizer implementation
 class Optimizer: public boost::noncopyable {

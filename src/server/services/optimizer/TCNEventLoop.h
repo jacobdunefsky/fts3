@@ -1,14 +1,6 @@
 #ifndef TCN_EVENT_LOOP_H
 #define TCN_EVENT_LOOP_H
 
-#include <map>
-#include <vector>
-#include <cstdlib>
-#include <cmath>
-#include <ctime>
-
-#include "Optimizer.h"
-
 enum class TCNEventPhase {estTOld, estTNew, adjust};
 enum class TCNEventType {measureUpdate, fileFinish};
 
