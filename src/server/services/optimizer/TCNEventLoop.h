@@ -1,14 +1,6 @@
 #ifndef TCN_EVENT_LOOP_H
 #define TCN_EVENT_LOOP_H
 
-#include <map>
-#include <vector>
-#include <cstdlib>
-#include <cmath>
-#include <ctime>
-
-#include "Optimizer.h"
-
 enum class TCNEventPhase {estTOld, estTNew, adjust};
 enum class TCNEventType {measureUpdate, fileFinish};
 
@@ -18,7 +10,7 @@ typedef std::map<Pair, double> ThroughputVector;
 struct TCNMeasureInfo {
 	std::map<Pair, double> bytesSentVector;
 	std::time_t measureTime;	
-};
+}
 
 class TCNEventLoop {
 public:
@@ -39,7 +31,7 @@ public:
 
 	std::vector<TCNMeasureInfo> measureInfos;
 
-	//ThroughputVector T_new;
+	ThroughputVector T_new;
 	
 	std::time_t epochStartTime;
 	std::time_t qosIntervalStartTime;

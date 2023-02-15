@@ -1,3 +1,11 @@
+#include <map>
+#include <vector>
+#include <cstdlib>
+#include <cmath>
+#include <ctime>
+
+#include "Optimizer.h"
+
 #include "TCNEventLoop.h"
 
 using namespace fts3::common;
@@ -22,13 +30,6 @@ Pair TCNEventLoop::choosePertPair(ThroughputVector n){
 	auto it = n.begin();
 	std::advance(it, std::rand() % n.size());
 	return it->first;
-}
-
-// each measurement information will give the number of bytes transferred
-// at the associated measureTime
-class TCNMeasureInfo {
-	std::map<Pair, double> bytesSentVector;
-	std::time_t measureTime;
 }
 
 /* Calculate tau for each pipe. (Number of bytes transferred since

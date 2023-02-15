@@ -122,7 +122,7 @@ struct DecisionState {
 };
 
 //#include "OptimizerTCN.h"
-#include "TCNEventLoop.h"
+
 
 // To decouple the optimizer core logic from the data storage/representation
 class OptimizerDataSource {
@@ -198,6 +198,7 @@ public:
         int diff, const std::string &rationale) = 0;
 };
 
+#include "TCNEventLoop.h"
 // Optimizer implementation
 class Optimizer: public boost::noncopyable {
 protected:
@@ -229,7 +230,7 @@ protected:
 
     // initial number of bytes transferred per project per link
     std::map<std::pair<std::string, std::string>, int64_t> initialTransferred;
-    
+
     double defaultBwLimit;
     // pipes that are currently not scheduling transfers, in order to limit
     // throughput (time multiplexing)
