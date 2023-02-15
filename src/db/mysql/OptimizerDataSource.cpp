@@ -146,7 +146,7 @@ public:
 		return (backLogged != 0);
 	}
 
-	void getActiveConcurrencyVector(ConcurrencyVector &n) 
+	void getActiveConcurrencyVector(std::map<Pair, int> &n) 
 	{
 		n.clear();
 		soci::rowset<soci::row> noConnections = 
@@ -330,7 +330,7 @@ public:
         return retval;
     }
 
-	void getTransferredBytes(ThroughputVector &measureMap, time_t windowStart)
+	void getTransferredBytes(std::map<Pair, double> &measureMap, time_t windowStart)
 	{
 		measureMap.clear(); 
 
@@ -430,7 +430,7 @@ public:
 	}
 
 
-	void getResourcesUpperbound(ThroughputVector &rescBoundsMap)
+	void getResourcesUpperbound(std::map<Pair, double> &rescBoundsMap)
 	{
 		rescBoundsMap.clear();
 
@@ -455,7 +455,7 @@ public:
 
 
 
-	void getPairsLowerbound(ThroughputVector &pairBoundsMap)
+	void getPairsLowerbound(std::map<Pair, double> &pairBoundsMap)
 	{
 		pairBoundsMap.clear();
 
