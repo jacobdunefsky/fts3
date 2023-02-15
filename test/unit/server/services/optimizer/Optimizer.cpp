@@ -154,7 +154,7 @@ public:
         return;
     }
 
-    void getTransferredBytes(std::map<Pair, long long> &measureMap, time_t windowStart)
+    void getTransferredBytes(std::map<Pair, double> &measureMap, time_t windowStart)
     {
         //TODO mock!
         return;
@@ -166,26 +166,26 @@ public:
         return;
     }
 
-    unsigned int getPairLowerBound(const Pair &pair) 
+    double getPairLowerBound(const Pair &pair) 
     {
         return 0;
     }
 
-    unsigned int getResourceUpperbound(std::string resc_id)
+    double getResourceUpperbound(std::string resc_id)
     {
         return 0; 
     }
 
-    void getResourcesUpperbound(std::map<std::string, unsigned int> &rescBoundsMap)
+    void getResourcesUpperbound(std::map<std::string, double> &rescBoundsMap)
     {
         return;
     }
 
-    void getPairsLowerbound(std::map<Pair, unsigned int> &pairBoundsMap)
+    void getPairsLowerbound(std::map<Pair, double> &pairBoundsMap)
     {
         return;
     }
-    
+
     void getThroughputInfo(const Pair &pair, const boost::posix_time::time_duration &interval,
         double *throughput, double *filesizeAvg, double *filesizeStdDev)
     {

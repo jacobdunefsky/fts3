@@ -135,17 +135,17 @@ public:
     // Return the optimizer configuration value
     virtual OptimizerMode getOptimizerMode(const std::string &source, const std::string &dest) = 0;
 
-    virtual void getPairsLowerbound(std::map<Pair, unsigned int> &pairBoundsMap) = 0;
+    virtual void getPairsLowerbound(std::map<Pair, double> &pairBoundsMap) = 0;
 
-    virtual void getResourcesUpperbound(std::map<std::string, unsigned int> &rescBoundsMap) = 0; 
+    virtual void getResourcesUpperbound(std::map<std::string, double> &rescBoundsMap) = 0; 
 
-    virtual unsigned int getResourceUpperbound(std::string resc_id) = 0;
+    virtual double getResourceUpperbound(std::string resc_id) = 0;
 
-    virtual unsigned int getPairLowerBound(const Pair &pair) = 0;
+    virtual double getPairLowerBound(const Pair &pair) = 0;
 
     virtual void getTcnResourceMap(std::map<std::string, std::vector<Pair>> &resourceMap) = 0;
 
-    virtual void getTransferredBytes(std::map<Pair, long long> &measureMap, time_t windowStart) = 0;
+    virtual void getTransferredBytes(std::map<Pair, double> &measureMap, time_t windowStart) = 0;
 
     virtual void getActiveConcurrencyVector(std::map<Pair, unsigned int> &ConcurrencyVector) = 0;
 

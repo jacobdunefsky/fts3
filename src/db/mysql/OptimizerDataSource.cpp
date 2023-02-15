@@ -232,7 +232,7 @@ public:
     }
 
 
-    void getTransferredBytes(std::map<Pair, long long> &measureMap, time_t windowStart)
+    void getTransferredBytes(std::map<Pair, double> &measureMap, time_t windowStart)
     {
         measureMap.clear(); 
 
@@ -288,11 +288,11 @@ public:
                 if (idx == measureMap.end()) 
                 {
                     // not found    
-                    measureMap.insert(std::pair<Pair, long long>(currentpair, bytesInWindow));
+                    measureMap.insert(std::pair<Pair, double>(currentpair, (double)bytesInWindow));
                 } 
                 else 
                 {
-                    idx->second += bytesInWindow;
+                    idx->second += (double)bytesInWindow;
                 }
                 
             }
@@ -336,9 +336,9 @@ public:
         return;
     }
 
-    unsigned int getPairLowerBound(const Pair &pair) 
+    double getPairLowerBound(const Pair &pair) 
     {
-        unsigned int lowerBound; 
+        double lowerBound; 
 
         sql << "    SELECT r.min_usage as bound "
             "    FROM t_tcn_atm_pair_ctrlspec r "
@@ -351,9 +351,9 @@ public:
         return lowerBound; 
     }
 
-    unsigned int getResourceUpperbound(std::string resc_id)
+    double getResourceUpperbound(std::string resc_id)
     {
-        unsigned int upperBound; 
+        double upperBound; 
 
         sql << "    SELECT r.max_usage as bound "
             "    FROM t_tcn_atm_resource_ctrlspec r "
@@ -366,7 +366,7 @@ public:
     }
 
 
-    void getResourcesUpperbound(std::map<std::string, unsigned int> &rescBoundsMap)
+    void getResourcesUpperbound(std::map<std::string, double> &rescBoundsMap)
     {
         rescBoundsMap.clear();
 
@@ -376,13 +376,13 @@ public:
         for (auto j = bound_map.begin(); j != bound_map.end(); ++j) 
         {
             auto resc_id = j->get<std::string>("resc_id");
-            auto upperBound = j->get<unsigned int>("max_usage"); 
+            auto upperBound = j->get<double>("max_usage"); 
 
 
             if (rescBoundsMap.find(resc_id) == rescBoundsMap.end()) 
             {
                 // not found
-                rescBoundsMap.insert(std::pair<std::string, unsigned int>(resc_id, upperBound));
+                rescBoundsMap.insert(std::pair<std::string, double>(resc_id, upperBound));
             } 
         }
         
@@ -390,7 +390,7 @@ public:
     }
 
 
-    void getPairsLowerbound(std::map<Pair, unsigned int> &pairBoundsMap)
+    void getPairsLowerbound(std::map<Pair, double> &pairBoundsMap)
     {
         pairBoundsMap.clear();
 
@@ -402,7 +402,7 @@ public:
         {
             auto source_se = j->get<std::string>("source_se");
             auto dest_se = j->get<std::string>("dest_se");
-            auto lowerBound = j->get<unsigned int>("min_usage"); 
+            auto lowerBound = j->get<double>("min_usage"); 
 
             Pair currentpair(source_se, dest_se, "");
 
@@ -410,7 +410,7 @@ public:
             {
                 // not found
 
-                pairBoundsMap.insert(std::pair<Pair, unsigned int>(currentpair, lowerBound));
+                pairBoundsMap.insert(std::pair<Pair, double>(currentpair, lowerBound));
             } 
         }
 
