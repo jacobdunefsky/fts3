@@ -743,7 +743,7 @@ DROP TABLE IF EXISTS `t_tcn_atm_resource_ctrlspec`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `t_tcn_atm_resource_ctrlspec` (
   `resc_id` varchar(64) NOT NULL,
-  `max_usage` double DEFAULT NULL,
+  `max_usage` double DEFAULT 1000000000000.0,
   PRIMARY KEY (`resc_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -755,7 +755,7 @@ DROP TABLE IF EXISTS `t_tcn_atm_pair_ctrlspec`;
 CREATE TABLE `t_tcn_atm_pair_ctrlspec` (
   `source_se` varchar(64) NOT NULL,
   `dest_se` varchar(64) NOT NULL,
-  `min_usage` double DEFAULT NULL,
+  `min_usage` double DEFAULT 0.0,
   PRIMARY KEY (`source_se`, `dest_se`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
