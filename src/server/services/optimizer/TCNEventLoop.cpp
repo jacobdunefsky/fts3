@@ -15,7 +15,7 @@ TCNEventLoop::TCNEventLoop(OptimizerDataSource *ds,
 	double convergeVariance_,
 	std::time_t estTOldMinTime_,
 	TCNEventPhase phase_) : 
-	dataSource(ds), convergeVariance(convergeVariance_), estTOldMinTime(estTOldMinTime_), phase(phase_), pertPair("", "", "")
+	dataSource(ds), convergeVariance(convergeVariance_), estTOldMinTime(estTOldMinTime_), phase(phase_), pertPair(Pair("", "", ""))
 {
 }
 
@@ -285,7 +285,7 @@ ThroughputVector TCNEventLoop::constructTargetTput(){
 	return lowerBound;
 }
 
-void TCNEventLoop::newQosInterval(std::time start) {
+void TCNEventLoop::newQosInterval(std::time_t start) {
 	phase = TCNEventPhase::estTOld;
 	measureInfos.clear();
 	qosIntervalStartTime = start; 
@@ -320,7 +320,7 @@ ConcurrencyVector TCNEventLoop::step(){
 			break;
 		}
 	
-		variance = calculateTputVariance(measureInfos);
+		double variance = calculateTputVariance();
 		if(variance < convergeVariance &&
 			std::time(NULL)-epochStartTime > estTOldMinTime){
 
@@ -331,7 +331,7 @@ ConcurrencyVector TCNEventLoop::step(){
 			// perturb a new pipe
 			measureInfos.clear();
 			do {
-				pertPair = choosePertPair(n_old);
+				pertPair = choosePertPair(T_old);
 				n_new = n_old;
 				n_new[pertPair] += 1;
 			} while(!dataSource->isBacklogged(pertPair));
@@ -355,7 +355,7 @@ ConcurrencyVector TCNEventLoop::step(){
 			break;
 		}
 
-		variance = calculateTputVariance();
+		double variance = calculateTputVariance();
 		if(variance < convergeVariance){
 			// we have converged
 			T_new = calculateTput(-1);
@@ -390,7 +390,7 @@ ConcurrencyVector TCNEventLoop::step(){
 			// some other pipe might not be backlogged, but we'll just hope
 			// that this doesn't affect things too much
 			for(auto it = cur_n.begin(); it != cur_n.end(); it++) {
-				if(it->first != pertPair) {
+				if(!(it->first == pertPair)) {
 					n_target[it->first] = it->second;
 				}
 			}

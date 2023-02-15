@@ -36,6 +36,8 @@ public:
 	std::time_t epochStartTime;
 	std::time_t qosIntervalStartTime;
 
+    //Data source 
+    OptimizerDataSource *dataSource;
 	// constants
 
 	// if throughput variance is less than this, then our estimation
