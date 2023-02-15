@@ -150,13 +150,16 @@ void Optimizer::run(void)
         if (timeMultiplexing && now - qosIntervalStart > qosInterval) {
             // we have ended our resource interval
             // time to start a new one
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: starting new QoS interval" << commit;
             newInterval = true;
             qosIntervalStart = now;
 			tcnOptimizer->newQosInterval(now);
-            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: new QoS innterval starts" << commit;
+            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: new QoS interval starts" << commit;
         }
 
+        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: getting active pipes" << commit;
         std::list<Pair> pairs = dataSource->getActivePairs();
+        FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: active pipes loaded" << commit;
         // Make sure the order is always the same
         // See FTS-1094
         pairs.sort();
@@ -208,7 +211,9 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
     std::map<Pair, unsigned int> decisions;
     std::map<Pair, DecisionState> decisionVector;
 
+    FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: running a tcn step" << commit;
     decisions = tcnOptimizer->step();
+    FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: a tcn step done" << commit;
 
     for (auto it = decisions.begin(); it != decisions.end(); ++it) {
         auto pair = it->first;
