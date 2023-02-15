@@ -6,6 +6,8 @@
 
 #include "Optimizer.h"
 #include "common/Exceptions.h"
+#include "common/Logger.h"
+#include "common/panic.h"
 
 #include "TCNEventLoop.h"
 
@@ -132,6 +134,8 @@ ThroughputVector TCNEventLoop::calculateTput(int index) {
 		return retval;
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
@@ -209,6 +213,8 @@ double TCNEventLoop::calculateTputVariance() {
 		return maxVar;
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
@@ -311,6 +317,8 @@ ConcurrencyVector TCNEventLoop::gradStep(){
 		return my_n_target;
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
@@ -328,6 +336,8 @@ ThroughputVector TCNEventLoop::constructTargetTput(){
 		}
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
@@ -343,6 +353,8 @@ void TCNEventLoop::newQosInterval(std::time_t start) {
 		qosIntervalStartTime = start; 
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
@@ -470,6 +482,8 @@ ConcurrencyVector TCNEventLoop::step(){
 		}
 	}
     catch (std::exception &e) {
+		std::string stackTrace = panic::stack_dump(panic::stack_backtrace, panic::stack_backtrace_size);
+		FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Stacktrace: " << stackTrace << commit;
         throw SystemError(std::string(__func__) + ": Caught exception " + e.what());
     }
     catch (...) {
