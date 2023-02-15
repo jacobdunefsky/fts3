@@ -33,7 +33,7 @@ namespace fts3 {
 namespace optimizer {
 
 
-Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer, time_t qosInterval, double defaultBwLimit):
+Optimizer::Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNEventLoop *tcnOptimizer, time_t qosInterval, double defaultBwLimit):
     dataSource(ds), callbacks(callbacks), tcnOptimizer(tcnOptimizer),
     optimizerSteadyInterval(boost::posix_time::seconds(60)), maxNumberOfStreams(10),
     maxSuccessRate(100), lowSuccessRate(97), baseSuccessRate(96),
@@ -151,8 +151,8 @@ void Optimizer::run(void)
             // we have ended our resource interval
             // time to start a new one
             newInterval = true;
-            sleepingPipes.clear();
             qosIntervalStart = now;
+			tcnOptimizer->newQosInterval(now);
             FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: new QoS innterval starts" << commit;
         }
 
@@ -170,39 +170,9 @@ void Optimizer::run(void)
         std::map<std::string, std::map<std::string, double>> resourceLimits;
 
         for (auto i = pairs.begin(); i != pairs.end(); ++i) {
-            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Test run " << *i << " using traditional optimizer" << commit;
-            auto optMode = runOptimizerForPair(*i);
-            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Optimizer mode of " << *i << ": " << optMode << commit;
-            if (optMode == kOptimizerAggregated) {
-                FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
+			FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Put " << *i << " to TCN aggregated optimizer" << commit;
 
-                aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
-                std::string project = dataSource->getTcnProject(*i);
-                auto limitsFound = resourceLimits.find(project);
-                if(limitsFound == resourceLimits.end()) {
-                    resourceLimits[project] = dataSource->getTcnResourceSpec();
-                }
-
-                std::vector<std::string> links = dataSource->getTcnPipeResource(*p);
-                if (newInterval) {
-                    for(auto link = links.begin(); link != links.end(); link++){
-                        initialTransferred[std::pair<project,*link>] = dataSource->getTransferredInfo(*i, qosIntervalStart);
-                    }
-                }
-                else {
-                    for(auto link = links.begin(); link != links.end(); link++){
-                        int64_t curTransferred = dataSource->getBytesToTransferInfo(*i, qosIntervalStart) - initialTransferred[std::pair<project,*link>];
-                        uint64_t limit = resourceLimits[project][*link];
-                        // multiply limit by 1024 to get MBps
-                        if (curTransferred > qosInterval * limit * 1024 && limit != 0) {
-                            // we've gone over our bandwidth limit
-                            // add to the set of sleeping pipes
-                            sleepingPipes.insert(*i);
-                            FTS3_COMMON_LOGGER_NEWLOG(DEBUG) << "Time multiplexing: pipe " << *i << " exceeds resource limit, sleep." << commit;
-                        }
-                    }
-                }
-            }
+			aggregatedPairState[*i] = getPairState(*i, timeMultiplexing, newInterval);
         }
 
         // Start ticking!
@@ -238,7 +208,7 @@ std::map<Pair, DecisionState> Optimizer::runTCNOptimizer(std::map<Pair, PairStat
     std::map<Pair, int> decisions;
     std::map<Pair, DecisionState> decisionVector;
 
-    tcnOptimizer->step(aggregatedPairState, decisions, sleepingPipes);
+    decisions = tcnOptimizer->step();
 
     for (auto it = decisions.begin(); it != decisions.end(); ++it) {
         auto pair = it->first;

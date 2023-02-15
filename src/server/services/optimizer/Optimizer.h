@@ -121,7 +121,8 @@ struct DecisionState {
     DecisionState(PairState current, int decision, int diff, std::string rationale): decision(decision), diff(diff), current(current), rationale(rationale) {}
 };
 
-#include "OptimizerTCN.h"
+//#include "OptimizerTCN.h"
+#include "TCNEventLoop.h"
 
 // To decouple the optimizer core logic from the data storage/representation
 class OptimizerDataSource {
@@ -201,7 +202,7 @@ protected:
     //
     // Member for TCN optimizer specific
     //
-    TCNOptimizer *tcnOptimizer;
+    TCNEventLoop *tcnOptimizer;
 
     // time multiplexing stuff
 
@@ -240,7 +241,7 @@ protected:
     void applyDecisions(std::map<Pair, DecisionState> decisionVector, boost::timer::cpu_timer timer);
 
 public:
-    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNOptimizer *tcnOptimizer=NULL, time_t qosInterval=30, double defaultBwLimit=25000);
+    Optimizer(OptimizerDataSource *ds, OptimizerCallbacks *callbacks, TCNEventLoop *tcnOptimizer=NULL, time_t qosInterval=30, double defaultBwLimit=25000);
     ~Optimizer();
 
     void setSteadyInterval(boost::posix_time::time_duration);

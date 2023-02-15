@@ -23,6 +23,8 @@
 #include "OptimizerService.h"
 #include "Optimizer.h"
 
+#include <time.h>
+
 #include "db/generic/SingleDbInstance.h"
 
 
@@ -109,10 +111,12 @@ void OptimizerService::runService()
     );
 
     // TODO: read parameters from configuration
-    TCNOptimizer *tcnOptimizer = NULL;
+    TCNEventLoop *tcnOptimizer = NULL;
     if (config::ServerConfig::instance().get<bool>("EnableTCNOptimizer")) {
-        TCNOptimizer tcnOptimizerInstance(
-            config::ServerConfig::instance().get<std::string>("TCNPenaltyMethod")
+        TCNEventLoop tcnOptimizerInstance(
+			db::DBSingleton::instance().getDBObjectInstance()->getOptimizerDataSource(),
+            config::ServerConfig::instance().get<double>("TCNConvergeVariance"),
+            config::ServerConfig::instance().get<time_t>("TCNEstTime"),
         );
         tcnOptimizer = &tcnOptimizerInstance;
     }
