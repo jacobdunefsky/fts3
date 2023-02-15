@@ -227,6 +227,9 @@ protected:
     // throughput as measured over this interval
     time_t qosInterval;
 
+    // initial number of bytes transferred per project per link
+    std::map<std::pair<std::string, std::string>, int64_t> initialTransferred;
+    
     double defaultBwLimit;
     // pipes that are currently not scheduling transfers, in order to limit
     // throughput (time multiplexing)
