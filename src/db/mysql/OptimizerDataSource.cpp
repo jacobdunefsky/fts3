@@ -128,6 +128,47 @@ public:
         return result;
     }
 
+	bool isBacklogged(const Pair &pair)
+	{ 
+		unsigned backLogged;
+		sql << " SELECT count(*) as c1 FROM    "
+			" ( "
+			"    SELECT f.file_id   "
+			"    FROM t_file f USE INDEX(idx_link_state_vo) "
+			"    WHERE f.file_state = 'SUBMITTED' AND   "
+			"       f.source_se = :source_se AND f.dest_se = :dest_se   "
+			"    LIMIT 1    "   
+			" )t1;  ", 
+			soci::use(pair.source), 
+			soci::use(pair.destination), 
+			soci::into(backLogged);
+		
+		return (backLogged != 0);
+	}
+
+	void getActiveConcurrencyVector(ConcurrencyVector &n) 
+	{
+		n.clear();
+		soci::rowset<soci::row> noConnections = 
+			(sql.prepare <<
+				" SELECT f.source_se, f.dest_se, COUNT(DISTINCT(f.file_id)) as no_actives   "
+					" FROM t_file f USE INDEX(idx_link_state_vo)    "
+					" WHERE f.file_state = 'ACTIVE' OR f.file_state = 'READY'   "
+					" GROUP BY f.source_se, f.dest_se "
+					" ORDER BY NULL;    ");
+
+
+		for (auto j = noConnections.begin(); j != noConnections.end(); ++j) {
+				auto source_se = j->get<std::string>("source_se");
+				auto dest_se = j->get<std::string>("dest_se");
+				auto connections = j->get<int>("no_actives");
+
+				Pair currentpair(source_se, dest_se, ""); 
+				n.insert(std::pair<Pair, int>(currentpair, connections));
+		}
+
+		return; 
+	}
 
     OptimizerMode getOptimizerMode(const std::string &source, const std::string &dest) {
         return getOptimizerModeInner(sql, source, dest);
@@ -231,6 +272,47 @@ public:
         return retval;
     }
 
+
+	void getTcnResourceMap(std::map<std::string, std::vector<Pair>> &resourceMap) {
+		resourceMap.clear();
+
+		soci::rowset<soci::row> resource_map = (sql.prepare <<
+			"SELECT resc_id, source_se, dest_se FROM t_tcn_resource_use ");
+
+		for (auto j = resource_map.begin(); j != resource_map.end(); ++j)
+		{
+			auto resc_id = j->get<std::string>("resc_id");
+			auto source_se = j->get<std::string>("source_se")
+			auto dest_se = j->get<std::string>("dest_se")
+
+
+
+			if (resourceMap.find(resc_id) == resourceMap.end())
+			{
+				Pair currentpair(source_se, dest_se, "");
+				// not found
+				std::vector<Pair> vect;
+				vect.push_back(currentpair);
+				resourceMap.insert(std::pair<std::string, std::vector<Pair>>(resc_id, vect));
+			}
+			else
+			{
+				Pair currentpair(source_se, dest_se, "");
+				// found
+				if (std::find(resourceMap[resc_id].begin(), resourceMap[resc_id].end(), currentpair) ==
+												resourceMap[resc_id].end())
+				{
+					// currentPair is not found in the resource map of the resource, add it
+					resourceMap[resc_id].push_back(currentpair);
+				}
+			}
+		}
+
+		return;
+	}
+
+
+
     std::map<std::string, double> getTcnResourceSpec(const std::string &project) {
         std::map<std::string, double> retval;
 
@@ -247,6 +329,159 @@ public:
         }
         return retval;
     }
+
+	void getTransferredBytes(ThroughputVector &measureMap, time_t windowStart)
+	{
+		measureMap.clear(); 
+
+		static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+		time_t now = time(NULL);
+		time_t total_seconds = now - windowStart;
+
+		soci::rowset<soci::row> transfers =
+			(sql.prepare
+					<< "SELECT start_time, finish_time, transferred, filesize, source_se, dest_se "
+					" FROM t_file "
+					" WHERE "
+					" file_state = 'ACTIVE' "
+					" UNION ALL "
+					" SELECT start_time, finish_time, transferred, filesize, source_se, dest_se "
+					" FROM t_file USE INDEX(idx_finish_time)"
+					" WHERE "
+					" file_state IN ('FINISHED', 'ARCHIVING') AND "
+					" finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval "
+					" SECOND)",
+					soci::use(total_seconds, "interval"));
+
+			int64_t totalBytes = 0;
+			
+
+			for (auto j = transfers.begin(); j != transfers.end(); ++j) {
+				auto transferred = j->get<long long>("transferred", 0.0);
+				auto filesize = j->get<long long>("filesize", 0.0);
+				auto starttm = j->get<struct tm>("start_time");
+				auto endtm = j->get<struct tm>("finish_time", nulltm);
+
+				auto source_se = j->get<std::string>('source_se'); 
+				auto dest_se = j->get<std::string>('dest_se');
+
+				time_t start = timegm(&starttm);
+				time_t end = timegm(&endtm);
+				time_t periodInWindow = 0;
+				long long bytesInWindow = 0;
+
+				// Not finish information
+				if (endtm.tm_year <= 0) {
+					bytesInWindow = transferred;
+				}
+				// Finished
+				else {
+					bytesInWindow = filesize;
+				}
+
+				Pair currentpair(source_se, dest_se, "");
+
+				auto idx = measureMap.find(resc_id);
+				if (idx == measureMap.end()) 
+				{
+					// not found
+					std::vector<Pair> vect{currentpair}; 
+					measureMap.insert(std::pair<Pair, double>(currentpair, (double)bytesInWindow));
+				} 
+				else 
+				{
+					idx->second += (double)bytesInWindow;
+				}
+				
+			}
+
+		return;
+	}
+
+
+	double getPairLowerBound(const Pair &pair) 
+	{
+		double lowerBound; 
+
+		sql << "    SELECT r.min_usage as bound "
+			"    FROM t_tcn_atm_pair_ctrlspec r "
+			"    WHERE r.source_se = :source_se AND r.dest_se = :dest_se    "
+			"    LIMIT 1    ", 
+			soci::use(pair.source), 
+			soci::use(pair.destination), 
+			soci::into(lowerBound);
+		
+		return lowerBound; 
+	}
+
+	double getResourceUpperbound(std::string resc_id)
+	{
+		double upperBound; 
+
+		sql << "    SELECT r.max_usage as bound "
+			"    FROM t_tcn_atm_resource_ctrlspec r "
+			"    WHERE r.resc_id = :resc_id "
+			"    LIMIT 1    ", 
+			soci::use(resc_id), 
+			soci::into(upperBound);
+
+		return upperBound;
+	}
+
+
+	void getResourcesUpperbound(ThroughputVector &rescBoundsMap)
+	{
+		rescBoundsMap.clear();
+
+		soci::rowset<soci::row> bound_map = (sql.prepare <<
+			"SELECT resc_id, max_usage FROM t_tcn_atm_resource_ctrlspec ");
+
+		for (auto j = bound_map.begin(); j != bound_map.end(); ++j) 
+		{
+			auto resc_id = j->get<std::string>("resc_id");
+			auto upperBound = j->get<unsigned int>("max_usage"); 
+
+
+			if (rescBoundsMap.find(resc_id) == rescBoundsMap.end()) 
+			{
+				// not found
+				rescBoundsMap.insert(std::pair<std::string, double>(resc_id, upperBound));
+			} 
+		}
+		
+		return; 
+	}
+
+
+
+	void getPairsLowerbound(ThroughputVector &pairBoundsMap)
+	{
+		pairBoundsMap.clear();
+
+		soci::rowset<soci::row> bound_map = (sql.prepare <<
+			"SELECT source_se, dest_se, min_usage FROM t_tcn_atm_pair_ctrlspec ");
+
+		
+		for (auto j = bound_map.begin(); j != bound_map.end(); ++j) 
+		{
+			auto source_se = j->get<std::string>("source_se");
+			auto dest_se = j->get<std::string>("dest_se");
+			auto lowerBound = j->get<double>("min_usage"); 
+
+			Pair currentpair(source_se, dest_se, "");
+
+			if (pairBoundsMap.find(currentpair) == pairBoundsMap.end()) 
+			{
+				// not found
+
+				pairBoundsMap.insert(std::pair<Pair, double>(currentpair, lowerBound));
+			} 
+		}
+
+		return;
+	}
+
 
     int64_t getTransferredInfo(const Pair &pair, time_t windowStart) {
         static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
