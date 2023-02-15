@@ -10,7 +10,7 @@ typedef std::map<Pair, double> ThroughputVector;
 struct TCNMeasureInfo {
 	std::map<Pair, double> bytesSentVector;
 	std::time_t measureTime;	
-}
+};
 
 class TCNEventLoop {
 public:
@@ -70,7 +70,7 @@ public:
 	ThroughputVector constructTargetTput();
 	void newQosInterval(std::time_t start);
 	void setOptimizerDecision(ConcurrencyVector n);
-	ConcurrencyVector step(TCNEventType type);
+	ConcurrencyVector step();
 };
 
 #endif
