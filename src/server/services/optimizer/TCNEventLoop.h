@@ -4,7 +4,7 @@
 enum class TCNEventPhase {estTOld, estTNew, adjust};
 enum class TCNEventType {measureUpdate, fileFinish};
 
-typedef std::map<Pair, int> ConcurrencyVector;
+typedef std::map<Pair, unsigned int> ConcurrencyVector;
 typedef std::map<Pair, double> ThroughputVector;
 
 struct TCNMeasureInfo {
@@ -37,7 +37,7 @@ public:
 	std::time_t qosIntervalStartTime;
 
     //Data source 
-    OptimizerDataSource *dataSource;
+    OptimizerDataSource *ds;
 	// constants
 
 	// if throughput variance is less than this, then our estimation
