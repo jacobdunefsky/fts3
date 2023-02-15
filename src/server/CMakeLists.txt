@@ -75,15 +75,15 @@ target_link_libraries(fts_server
 
 # Test executable for TCN optimizer
 # add_executable(tcn_optimizer "services/optimizer/TestOptimizerTCN.cpp")
-add_dependencies(tcn_optimizer fts_server_lib)
-target_link_libraries(tcn_optimizer
-  fts_server_lib
-  fts_config
-  fts_common
-  fts_infosys
-	fts_msg_ifce
-  ${Boost_LIBRARIES}
-)
+# add_dependencies(tcn_optimizer fts_server_lib)
+# target_link_libraries(tcn_optimizer
+#   fts_server_lib
+#   fts_config
+#   fts_common
+#   fts_infosys
+# 	fts_msg_ifce
+#   ${Boost_LIBRARIES}
+# )
 
 # Man pages
 set(MAN_INPUT_DIR "${PROJECT_SOURCE_DIR}/doc/man/server")
