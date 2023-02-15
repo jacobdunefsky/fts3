@@ -287,7 +287,7 @@ public:
                 auto idx = measureMap.find(currentpair);
                 if (idx == measureMap.end()) 
                 {
-                    // not found
+                    // not found    
                     measureMap.insert(std::pair<Pair, long long>(currentpair, bytesInWindow));
                 } 
                 else 

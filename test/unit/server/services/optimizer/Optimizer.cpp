@@ -142,6 +142,50 @@ public:
         return i->second.back().activeDecision;
     }
 
+    bool isBacklogged(const Pair &pair)
+    { 
+        //TODO mock for isBacklogged!
+        return false;
+    }
+
+    void getActiveConcurrencyVector(std::map<Pair, unsigned int> &ConcurrencyVector) 
+    {
+        //TODO mock 
+        return;
+    }
+
+    void getTransferredBytes(std::map<Pair, long long> &measureMap, time_t windowStart)
+    {
+        //TODO mock!
+        return;
+    }
+
+    void getTcnResourceMap(std::map<std::string, std::vector<Pair>> &resourceMap) 
+    {
+        //TODO mock!
+        return;
+    }
+
+    unsigned int getPairLowerBound(const Pair &pair) 
+    {
+        return 0;
+    }
+
+    unsigned int getResourceUpperbound(std::string resc_id)
+    {
+        return 0; 
+    }
+
+    void getResourcesUpperbound(std::map<std::string, unsigned int> &rescBoundsMap)
+    {
+        return;
+    }
+
+    void getPairsLowerbound(std::map<Pair, unsigned int> &pairBoundsMap)
+    {
+        return;
+    }
+    
     void getThroughputInfo(const Pair &pair, const boost::posix_time::time_duration &interval,
         double *throughput, double *filesizeAvg, double *filesizeStdDev)
     {
