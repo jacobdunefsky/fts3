@@ -310,8 +310,8 @@ public:
         for (auto j = resource_map.begin(); j != resource_map.end(); ++j) 
         {
             auto resc_id = j->get<std::string>("resc_id");
-            auto source_se = j->get<std::string>("source_se")
-            auto dest_se = j->get<std::string>("dest_se")
+            auto source_se = j->get<std::string>("source_se");
+            auto dest_se = j->get<std::string>("dest_se");
 
             if (resourceMap.find(resc_id) == resourceMap.end()) 
             {
@@ -417,7 +417,7 @@ public:
 
         return;
     }
-    
+
     std::string getTcnProject(const Pair &pair) {
         std::string pid;
 
