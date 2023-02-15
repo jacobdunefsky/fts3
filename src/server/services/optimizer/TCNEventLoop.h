@@ -15,6 +15,11 @@ enum class TCNEventType {measureUpdate, fileFinish};
 typedef std::map<Pair, int> ConcurrencyVector;
 typedef std::map<Pair, double> ThroughputVector;
 
+struct TCNMeasureInfo {
+	std::map<Pair, double> bytesSentVector;
+	std::time_t measureTime;	
+}
+
 class TCNEventLoop {
 public:
 	TCNEventPhase phase;
@@ -51,10 +56,10 @@ public:
 	// functions
 	
 	TCNEventLoop(
-		OptimizerDataSource *ds,
-		double convergeVariance = 1000,
-		std::time_t estTOldMinTime = 100,
-		TCNEventPhase phase = TCNEventPhase::estTOld
+		OptimizerDataSource *ds_,
+		double convergeVariance_ = 1000,
+		std::time_t estTOldMinTime_ = 100,
+		TCNEventPhase phase_ = TCNEventPhase::estTOld
 	);
 
 	Pair choosePertPair(ThroughputVector n);
