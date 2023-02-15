@@ -22,6 +22,7 @@
 #include <monitoring/msg-ifce.h>
 #include "OptimizerService.h"
 #include "Optimizer.h"
+#include "TCNEventLoop.h"
 
 #include <time.h>
 
@@ -34,8 +35,6 @@ namespace server {
 using optimizer::Optimizer;
 using optimizer::OptimizerCallbacks;
 using optimizer::PairState;
-using optimizer::TCNOptimizer;
-
 
 class OptimizerNotifier : public OptimizerCallbacks {
 protected:
@@ -60,7 +59,7 @@ public:
 
         msg.source_se = pair.source;
         msg.dest_se = pair.destination;
-		msg.vo_name = pair.vo_name;
+		msg.vo = pair.vo;
 
         msg.timestamp = millisecondsSinceEpoch();
 
