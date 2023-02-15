@@ -70,7 +70,7 @@ public:
 	ThroughputVector constructTargetTput();
 	void newQosInterval(std::time_t start);
 	void setOptimizerDecision(ConcurrencyVector n);
-	ConcurrencyVector step(TCNEventType type);
+	ConcurrencyVector step();
 };
 
 #endif
