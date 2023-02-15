@@ -25,8 +25,6 @@
 #include "common/Logger.h"
 #include "sociConversions.h"
 
-#include <unordered_set>
-
 using namespace db;
 using namespace fts3;
 using namespace fts3::common;
@@ -38,11 +36,11 @@ static void setNewOptimizerValue(soci::session &sql,
 {
     sql.begin();
     sql <<
-        "INSERT INTO t_optimizer (source_se, dest_se, vo_name, active, ema, datetime) "
-        "VALUES (:source, :dest, :vo_name, :active, :ema, UTC_TIMESTAMP()) "
+        "INSERT INTO t_optimizer (source_se, dest_se, active, ema, datetime) "
+        "VALUES (:source, :dest, :active, :ema, UTC_TIMESTAMP()) "
         "ON DUPLICATE KEY UPDATE "
         "   active = :active, ema = :ema, datetime = UTC_TIMESTAMP()",
-        soci::use(pair.source, "source"), soci::use(pair.destination, "dest"), soci::use(pair.vo, "vo_name"),
+        soci::use(pair.source, "source"), soci::use(pair.destination, "dest"),
         soci::use(optimizerDecision, "active"), soci::use(ema, "ema");
     sql.commit();
 }
@@ -55,18 +53,18 @@ static void updateOptimizerEvolution(soci::session &sql,
     try {
         sql.begin();
         sql << " INSERT INTO t_optimizer_evolution "
-            " (datetime, source_se, dest_se, vo_name"
+            " (datetime, source_se, dest_se, "
             "  ema, active, throughput, success, "
             "  filesize_avg, filesize_stddev, "
             "  actual_active, queue_size, "
             "  rationale, diff) "
             " VALUES "
-            " (UTC_TIMESTAMP(), :source, :dest, :vo_name"
+            " (UTC_TIMESTAMP(), :source, :dest, "
             "  :ema, :active, :throughput, :success, "
             "  :filesize_avg, :filesize_stddev, "
             "  :actual_active, :queue_size, "
             "  :rationale, :diff)",
-            soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo),
+            soci::use(pair.source), soci::use(pair.destination),
             soci::use(newState.ema), soci::use(active), soci::use(newState.throughput), soci::use(newState.successRate),
             soci::use(newState.filesizeAvg), soci::use(newState.filesizeStdDev),
             soci::use(newState.activeCount), soci::use(newState.queueSize),
@@ -91,8 +89,8 @@ static int getCountInState(soci::session &sql, const Pair &pair, const std::stri
     int count = 0;
 
     sql << "SELECT count(*) FROM t_file "
-    "WHERE source_se = :source AND dest_se = :dest_se AND vo_name = :vo_name AND file_state = :state",
-    soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo), soci::use(state), soci::into(count);
+    "WHERE source_se = :source AND dest_se = :dest_se AND file_state = :state",
+    soci::use(pair.source), soci::use(pair.destination), soci::use(state), soci::into(count);
 
     return count;
 }
@@ -110,6 +108,7 @@ public:
     ~MySqlOptimizerDataSource() {
     }
 
+
     std::list<Pair> getActivePairs(void) {
         std::list<Pair> result;
 
@@ -122,59 +121,18 @@ public:
         );
 
         for (auto i = rs.begin(); i != rs.end(); ++i) {
-            result.push_back(Pair(i->get<std::string>("source_se"), i->get<std::string>("dest_se"), i->get<std::string>("vo_name")));
+            result.push_back(Pair(i->get<std::string>("source_se"), i->get<std::string>("dest_se"),
+                                  i->get<std::string>("vo_name")));
         }
 
         return result;
     }
 
-	bool isBacklogged(const Pair &pair)
-	{ 
-		unsigned backLogged;
-		sql << " SELECT count(*) as c1 FROM    "
-			" ( "
-			"    SELECT f.file_id   "
-			"    FROM t_file f USE INDEX(idx_link_state_vo) "
-			"    WHERE f.file_state = 'SUBMITTED' AND   "
-			"       f.source_se = :source_se AND f.dest_se = :dest_se   "
-			"    LIMIT 1    "   
-			" )t1;  ", 
-			soci::use(pair.source), 
-			soci::use(pair.destination), 
-			soci::into(backLogged);
-		
-		return (backLogged != 0);
-	}
-
-	void getActiveConcurrencyVector(std::map<Pair, int> &n) 
-	{
-		n.clear();
-		soci::rowset<soci::row> noConnections = 
-			(sql.prepare <<
-				" SELECT f.source_se, f.dest_se, COUNT(DISTINCT(f.file_id)) as no_actives   "
-					" FROM t_file f USE INDEX(idx_link_state_vo)    "
-					" WHERE f.file_state = 'ACTIVE' OR f.file_state = 'READY'   "
-					" GROUP BY f.source_se, f.dest_se "
-					" ORDER BY NULL;    ");
-
-
-		for (auto j = noConnections.begin(); j != noConnections.end(); ++j) {
-				auto source_se = j->get<std::string>("source_se");
-				auto dest_se = j->get<std::string>("dest_se");
-				auto connections = j->get<int>("no_actives");
-
-				Pair currentpair(source_se, dest_se, ""); 
-				n.insert(std::pair<Pair, int>(currentpair, connections));
-		}
-
-		return; 
-	}
 
     OptimizerMode getOptimizerMode(const std::string &source, const std::string &dest) {
         return getOptimizerModeInner(sql, source, dest);
     }
 
-    // TODO: update to use vo_name? 
     void getPairLimits(const Pair &pair, Range *range, StorageLimits *limits) {
         soci::indicator nullIndicator;
 
@@ -221,14 +179,242 @@ public:
         int currentActive = 0;
 
         sql << "SELECT active FROM t_optimizer "
-            "WHERE source_se = :source AND dest_se = :dest_se AND vo_name = :vo_name",
-            soci::use(pair.source),soci::use(pair.destination),soci::use(pair.vo),
+            "WHERE source_se = :source AND dest_se = :dest_se",
+            soci::use(pair.source),soci::use(pair.destination),
             soci::into(currentActive, isCurrentNull);
 
         if (isCurrentNull == soci::i_null) {
             currentActive = 0;
         }
         return currentActive;
+    }
+    
+    bool isBacklogged(const Pair &pair)
+    { 
+        unsigned backLogged;
+        sql << " SELECT count(*) as c1 FROM    "
+            " ( "
+            "    SELECT f.file_id   "
+            "    FROM t_file f USE INDEX(idx_link_state_vo) "
+            "    WHERE f.file_state = 'SUBMITTED' AND   "
+            "       f.source_se = :source_se AND f.dest_se = :dest_se   "
+            "    LIMIT 1    "   
+            " )t1;  ", 
+            soci::use(pair.source), 
+            soci::use(pair.destination), 
+            soci::into(backLogged);
+        
+        return (backLogged != 0);
+    }
+
+    void getActiveConcurrencyVector(std::map<Pair, unsigned int> &ConcurrencyVector) 
+    {
+        ConcurrencyVector.clear();
+        soci::rowset<soci::row> noConnections = 
+            (sql.prepare <<
+                " SELECT f.source_se, f.dest_se, COUNT(DISTINCT(f.file_id)) as no_actives   "
+                    " FROM t_file f USE INDEX(idx_link_state_vo)    "
+                    " WHERE f.file_state = 'ACTIVE' OR f.file_state = 'READY'   "
+                    " GROUP BY f.source_se, f.dest_se "
+                    " ORDER BY NULL;    ");
+
+
+        for (auto j = noConnections.begin(); j != noConnections.end(); ++j) {
+                auto source_se = j->get<std::string>("source_se");
+                auto dest_se = j->get<std::string>("dest_se");
+                auto connections = j->get<unsigned int>("no_actives");
+
+                Pair currentpair(source_se, dest_se, ""); 
+                ConcurrencyVector.insert(std::pair<Pair, unsigned int>(currentpair, connections));
+        }
+
+        return; 
+    }
+
+
+    void getTransferredBytes(std::map<Pair, double> &measureMap, time_t windowStart)
+    {
+        measureMap.clear(); 
+
+        static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+        time_t now = time(NULL);
+        time_t total_seconds = now - windowStart;
+
+        soci::rowset<soci::row> transfers =
+            (sql.prepare
+                    << "SELECT start_time, finish_time, transferred, filesize, source_se, dest_se "
+                    " FROM t_file "
+                    " WHERE "
+                    " file_state = 'ACTIVE' "
+                    " UNION ALL "
+                    " SELECT start_time, finish_time, transferred, filesize, source_se, dest_se "
+                    " FROM t_file USE INDEX(idx_finish_time)"
+                    " WHERE "
+                    " file_state IN ('FINISHED', 'ARCHIVING') AND "
+                    " finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval "
+                    " SECOND)",
+                    soci::use(total_seconds, "interval"));
+
+            int64_t totalBytes = 0;
+            
+
+            for (auto j = transfers.begin(); j != transfers.end(); ++j) {
+                auto transferred = j->get<long long>("transferred", 0.0);
+                auto filesize = j->get<long long>("filesize", 0.0);
+                auto starttm = j->get<struct tm>("start_time");
+                auto endtm = j->get<struct tm>("finish_time", nulltm);
+
+                auto source_se = j->get<std::string>('source_se'); 
+                auto dest_se = j->get<std::string>('dest_se');
+
+                time_t start = timegm(&starttm);
+                time_t end = timegm(&endtm);
+                time_t periodInWindow = 0;
+                long long bytesInWindow = 0;
+
+                // Not finish information
+                if (endtm.tm_year <= 0) {
+                    bytesInWindow = transferred;
+                }
+                // Finished
+                else {
+                    bytesInWindow = filesize;
+                }
+
+                Pair currentpair(source_se, dest_se, "");
+
+                auto idx = measureMap.find(currentpair);
+                if (idx == measureMap.end()) 
+                {
+                    // not found    
+                    measureMap.insert(std::pair<Pair, double>(currentpair, (double)bytesInWindow));
+                } 
+                else 
+                {
+                    idx->second += (double)bytesInWindow;
+                }
+                
+            }
+
+        return;
+    }
+
+    void getTcnResourceMap(std::map<std::string, std::vector<Pair>> &resourceMap) {
+        resourceMap.clear();
+
+        soci::rowset<soci::row> resource_map = (sql.prepare <<
+            "SELECT resc_id, source_se, dest_se FROM t_tcn_resource_use ");
+
+        for (auto j = resource_map.begin(); j != resource_map.end(); ++j) 
+        {
+            auto resc_id = j->get<std::string>("resc_id");
+            auto source_se = j->get<std::string>("source_se");
+            auto dest_se = j->get<std::string>("dest_se");
+
+            if (resourceMap.find(resc_id) == resourceMap.end()) 
+            {
+                Pair currentpair(source_se, dest_se, "");
+                // not found
+                std::vector<Pair> vect;
+                vect.push_back(currentpair); 
+                resourceMap.insert(std::pair<std::string, std::vector<Pair>>(resc_id, vect));
+            } 
+            else 
+            {
+                Pair currentpair(source_se, dest_se, "");
+                // found
+                if (std::find(resourceMap[resc_id].begin(), resourceMap[resc_id].end(), currentpair) == 
+                                                resourceMap[resc_id].end()) 
+                {
+                    // currentPair is not found in the resource map of the resource, add it 
+                    resourceMap[resc_id].push_back(currentpair);
+                }
+            }
+        }
+
+        return;
+    }
+
+    double getPairLowerBound(const Pair &pair) 
+    {
+        double lowerBound; 
+
+        sql << "    SELECT r.min_usage as bound "
+            "    FROM t_tcn_atm_pair_ctrlspec r "
+            "    WHERE r.source_se = :source_se AND r.dest_se = :dest_se    "
+            "    LIMIT 1    ", 
+            soci::use(pair.source), 
+            soci::use(pair.destination), 
+            soci::into(lowerBound);
+        
+        return lowerBound; 
+    }
+
+    double getResourceUpperbound(std::string resc_id)
+    {
+        double upperBound; 
+
+        sql << "    SELECT r.max_usage as bound "
+            "    FROM t_tcn_atm_resource_ctrlspec r "
+            "    WHERE r.resc_id = :resc_id "
+            "    LIMIT 1    ", 
+            soci::use(resc_id), 
+            soci::into(upperBound);
+
+        return upperBound;
+    }
+
+
+    void getResourcesUpperbound(std::map<std::string, double> &rescBoundsMap)
+    {
+        rescBoundsMap.clear();
+
+        soci::rowset<soci::row> bound_map = (sql.prepare <<
+            "SELECT resc_id, max_usage FROM t_tcn_atm_resource_ctrlspec ");
+
+        for (auto j = bound_map.begin(); j != bound_map.end(); ++j) 
+        {
+            auto resc_id = j->get<std::string>("resc_id");
+            auto upperBound = j->get<double>("max_usage"); 
+
+
+            if (rescBoundsMap.find(resc_id) == rescBoundsMap.end()) 
+            {
+                // not found
+                rescBoundsMap.insert(std::pair<std::string, double>(resc_id, upperBound));
+            } 
+        }
+        
+        return; 
+    }
+
+
+    void getPairsLowerbound(std::map<Pair, double> &pairBoundsMap)
+    {
+        pairBoundsMap.clear();
+
+        soci::rowset<soci::row> bound_map = (sql.prepare <<
+            "SELECT source_se, dest_se, min_usage FROM t_tcn_atm_pair_ctrlspec ");
+
+        
+        for (auto j = bound_map.begin(); j != bound_map.end(); ++j) 
+        {
+            auto source_se = j->get<std::string>("source_se");
+            auto dest_se = j->get<std::string>("dest_se");
+            auto lowerBound = j->get<double>("min_usage"); 
+
+            Pair currentpair(source_se, dest_se, "");
+
+            if (pairBoundsMap.find(currentpair) == pairBoundsMap.end()) 
+            {
+                // not found
+
+                pairBoundsMap.insert(std::pair<Pair, double>(currentpair, lowerBound));
+            } 
+        }
+
+        return;
     }
 
     std::string getTcnProject(const Pair &pair) {
@@ -256,8 +442,9 @@ public:
         return pid;
     }
 
-    std::vector<std::string> getTcnPipeResource(const Pair &pair) {
-        std::vector<std::string> retval;
+    void getTcnPipeResource(const Pair &pair, std::vector<std::string> &usedResources) {
+        usedResources.clear();
+
         soci::rowset<soci::row> resources = (sql.prepare <<
             "SELECT resc_id FROM t_tcn_resource_use "
             " WHERE source_se = :source_se AND dest_se = :dest_se",
@@ -267,54 +454,12 @@ public:
         for (auto j = resources.begin(); j != resources.end(); ++j) {
             auto rescId = j->get<std::string>("resc_id");
 
-            retval.push_back(rescId);
+            usedResources.push_back(rescId);
         }
-        return retval;
     }
 
-
-	void getTcnResourceMap(std::map<std::string, std::vector<Pair>> &resourceMap) {
-		resourceMap.clear();
-
-		soci::rowset<soci::row> resource_map = (sql.prepare <<
-			"SELECT resc_id, source_se, dest_se FROM t_tcn_resource_use ");
-
-		for (auto j = resource_map.begin(); j != resource_map.end(); ++j)
-		{
-			auto resc_id = j->get<std::string>("resc_id");
-			auto source_se = j->get<std::string>("source_se")
-			auto dest_se = j->get<std::string>("dest_se")
-
-
-
-			if (resourceMap.find(resc_id) == resourceMap.end())
-			{
-				Pair currentpair(source_se, dest_se, "");
-				// not found
-				std::vector<Pair> vect;
-				vect.push_back(currentpair);
-				resourceMap.insert(std::pair<std::string, std::vector<Pair>>(resc_id, vect));
-			}
-			else
-			{
-				Pair currentpair(source_se, dest_se, "");
-				// found
-				if (std::find(resourceMap[resc_id].begin(), resourceMap[resc_id].end(), currentpair) ==
-												resourceMap[resc_id].end())
-				{
-					// currentPair is not found in the resource map of the resource, add it
-					resourceMap[resc_id].push_back(currentpair);
-				}
-			}
-		}
-
-		return;
-	}
-
-
-
-    std::map<std::string, double> getTcnResourceSpec(const std::string &project) {
-        std::map<std::string, double> retval;
+    void getTcnResourceSpec(const std::string &project, std::map<std::string, double> &resourceConstraints) {
+        resourceConstraints.clear();
 
         soci::rowset<soci::row> specs = (sql.prepare <<
             "SELECT resc_id, max_usage from t_tcn_resource_ctrlspec "
@@ -325,163 +470,9 @@ public:
             auto rescId = i->get<std::string>("resc_id");
             auto capacity = i->get<double>("max_usage");
 
-            retval[rescId] = capacity;
+            resourceConstraints[rescId] = capacity;
         }
-        return retval;
     }
-
-	void getTransferredBytes(std::map<Pair, double> &measureMap, time_t windowStart)
-	{
-		measureMap.clear(); 
-
-		static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-		time_t now = time(NULL);
-		time_t total_seconds = now - windowStart;
-
-		soci::rowset<soci::row> transfers =
-			(sql.prepare
-					<< "SELECT start_time, finish_time, transferred, filesize, source_se, dest_se "
-					" FROM t_file "
-					" WHERE "
-					" file_state = 'ACTIVE' "
-					" UNION ALL "
-					" SELECT start_time, finish_time, transferred, filesize, source_se, dest_se "
-					" FROM t_file USE INDEX(idx_finish_time)"
-					" WHERE "
-					" file_state IN ('FINISHED', 'ARCHIVING') AND "
-					" finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval "
-					" SECOND)",
-					soci::use(total_seconds, "interval"));
-
-			int64_t totalBytes = 0;
-			
-
-			for (auto j = transfers.begin(); j != transfers.end(); ++j) {
-				auto transferred = j->get<long long>("transferred", 0.0);
-				auto filesize = j->get<long long>("filesize", 0.0);
-				auto starttm = j->get<struct tm>("start_time");
-				auto endtm = j->get<struct tm>("finish_time", nulltm);
-
-				auto source_se = j->get<std::string>('source_se'); 
-				auto dest_se = j->get<std::string>('dest_se');
-
-				time_t start = timegm(&starttm);
-				time_t end = timegm(&endtm);
-				time_t periodInWindow = 0;
-				long long bytesInWindow = 0;
-
-				// Not finish information
-				if (endtm.tm_year <= 0) {
-					bytesInWindow = transferred;
-				}
-				// Finished
-				else {
-					bytesInWindow = filesize;
-				}
-
-				Pair currentpair(source_se, dest_se, "");
-
-				auto idx = measureMap.find(resc_id);
-				if (idx == measureMap.end()) 
-				{
-					// not found
-					std::vector<Pair> vect{currentpair}; 
-					measureMap.insert(std::pair<Pair, double>(currentpair, (double)bytesInWindow));
-				} 
-				else 
-				{
-					idx->second += (double)bytesInWindow;
-				}
-				
-			}
-
-		return;
-	}
-
-
-	double getPairLowerBound(const Pair &pair) 
-	{
-		double lowerBound; 
-
-		sql << "    SELECT r.min_usage as bound "
-			"    FROM t_tcn_atm_pair_ctrlspec r "
-			"    WHERE r.source_se = :source_se AND r.dest_se = :dest_se    "
-			"    LIMIT 1    ", 
-			soci::use(pair.source), 
-			soci::use(pair.destination), 
-			soci::into(lowerBound);
-		
-		return lowerBound; 
-	}
-
-	double getResourceUpperbound(std::string resc_id)
-	{
-		double upperBound; 
-
-		sql << "    SELECT r.max_usage as bound "
-			"    FROM t_tcn_atm_resource_ctrlspec r "
-			"    WHERE r.resc_id = :resc_id "
-			"    LIMIT 1    ", 
-			soci::use(resc_id), 
-			soci::into(upperBound);
-
-		return upperBound;
-	}
-
-
-	void getResourcesUpperbound(std::map<Pair, double> &rescBoundsMap)
-	{
-		rescBoundsMap.clear();
-
-		soci::rowset<soci::row> bound_map = (sql.prepare <<
-			"SELECT resc_id, max_usage FROM t_tcn_atm_resource_ctrlspec ");
-
-		for (auto j = bound_map.begin(); j != bound_map.end(); ++j) 
-		{
-			auto resc_id = j->get<std::string>("resc_id");
-			auto upperBound = j->get<unsigned int>("max_usage"); 
-
-
-			if (rescBoundsMap.find(resc_id) == rescBoundsMap.end()) 
-			{
-				// not found
-				rescBoundsMap.insert(std::pair<std::string, double>(resc_id, upperBound));
-			} 
-		}
-		
-		return; 
-	}
-
-
-
-	void getPairsLowerbound(std::map<Pair, double> &pairBoundsMap)
-	{
-		pairBoundsMap.clear();
-
-		soci::rowset<soci::row> bound_map = (sql.prepare <<
-			"SELECT source_se, dest_se, min_usage FROM t_tcn_atm_pair_ctrlspec ");
-
-		
-		for (auto j = bound_map.begin(); j != bound_map.end(); ++j) 
-		{
-			auto source_se = j->get<std::string>("source_se");
-			auto dest_se = j->get<std::string>("dest_se");
-			auto lowerBound = j->get<double>("min_usage"); 
-
-			Pair currentpair(source_se, dest_se, "");
-
-			if (pairBoundsMap.find(currentpair) == pairBoundsMap.end()) 
-			{
-				// not found
-
-				pairBoundsMap.insert(std::pair<Pair, double>(currentpair, lowerBound));
-			} 
-		}
-
-		return;
-	}
-
 
     int64_t getTransferredInfo(const Pair &pair, time_t windowStart) {
         static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -539,79 +530,6 @@ public:
         return totalBytes;
     }
 
-	// gets number of bytes scheduled to be transferred within a given window
-	// this includes bytes that have not yet been transferred
-	int64_t getBytesToTransferInfo(const Pair &pair, time_t windowStart) {
-        static struct tm nulltm = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-        time_t now = time(NULL);
-        time_t total_seconds = now - windowStart;
-
-        soci::rowset<soci::row> transfers =
-            (sql.prepare
-                 << "SELECT filesize "
-                    " FROM t_file "
-                    " WHERE "
-                    "   source_se = :sourceSe AND dest_se = :destSe AND "
-                    "   vo_name = :voName AND "
-                    "file_state = 'ACTIVE' "
-                    "UNION ALL "
-                    "SELECT filesize "
-                    " FROM t_file USE INDEX(idx_finish_time)"
-                    " WHERE "
-                    "   source_se = :sourceSe AND dest_se = :destSe "
-                    "   AND vo_name = :voName "
-                    "   AND file_state IN ('FINISHED', 'ARCHIVING') AND "
-                    "finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval "
-                    "SECOND)",
-             soci::use(pair.source, "sourceSe"),
-             soci::use(pair.destination, "destSe"),
-             soci::use(pair.vo, "voName"),
-             soci::use(total_seconds, "interval"));
-
-        int64_t totalBytes = 0;
-
-        for (auto j = transfers.begin(); j != transfers.end(); ++j) {
-            auto filesize = j->get<long long>("filesize", 0.0);
-            totalBytes += filesize;
-        }
-        return totalBytes;
-    }
-
-    // returns throughput limits per project per link
-    double getTputLimits(std::string projId, std::string plinkId)
-    {
-        double retval = 0;
-        soci::rowset<soci::row> links = (sql.prepare <<
-        "SELECT max_throughput "
-        " FROM t_bounds "
-        " WHERE "
-        "   proj_id = :projId AND plink_id = :plinkId",
-        soci::use(projId, "projId"), soci::use(plinkId, "plinkId"),
-        soci::into(retval));
-
-        return retval;
-    }
-
-    std::unordered_set<std::string> getLinks(std::string src, std::string dst)
-    {
-        soci::rowset<soci::row> links = (sql.prepare <<
-        "SELECT plink_id "
-        " FROM t_routing "
-        " WHERE "
-        "   source_se = :sourceSe AND dest_se = :destSe",
-        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"));
-
-        std::unordered_set<std::string> retval;
-
-        for (auto j = links.begin(); j != links.end(); ++j) {
-            retval.insert(j->get<std::string>("plink_id", ""));
-;
-        }
-
-        return retval;
-    }
-
     void getThroughputInfo(const Pair &pair, const boost::posix_time::time_duration &interval,
         double *throughput, double *filesizeAvg, double *filesizeStdDev)
     {
@@ -626,14 +544,14 @@ public:
         "SELECT start_time, finish_time, transferred, filesize "
         " FROM t_file "
         " WHERE "
-        "   source_se = :sourceSe AND dest_se = :destSe AND vo_name = :vo_name AND file_state = 'ACTIVE' "
+        "   source_se = :sourceSe AND dest_se = :destSe AND file_state = 'ACTIVE' "
         "UNION ALL "
         "SELECT start_time, finish_time, transferred, filesize "
         " FROM t_file USE INDEX(idx_finish_time)"
         " WHERE "
-        "   source_se = :sourceSe AND dest_se = :destSe AND vo_name = :vo_name"
+        "   source_se = :sourceSe AND dest_se = :destSe "
         "   AND file_state IN ('FINISHED', 'ARCHIVING') AND finish_time >= (UTC_TIMESTAMP() - INTERVAL :interval SECOND)",
-        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"), soci::use(pair.vo, "vo_name"),
+        soci::use(pair.source, "sourceSe"), soci::use(pair.destination, "destSe"),
         soci::use(interval.total_seconds(), "interval"));
 
         int64_t totalBytes = 0;
@@ -698,10 +616,10 @@ public:
         soci::indicator isNullAvg = soci::i_ok;
 
         sql << "SELECT AVG(tx_duration) FROM t_file USE INDEX(idx_finish_time)"
-            " WHERE source_se = :source AND dest_se = :dest AND vo_name = :vo_name AND file_state IN ('FINISHED', 'ARCHIVING') AND "
+            " WHERE source_se = :source AND dest_se = :dest AND file_state IN ('FINISHED', 'ARCHIVING') AND "
             "   tx_duration > 0 AND tx_duration IS NOT NULL AND "
             "   finish_time > (UTC_TIMESTAMP() - INTERVAL :interval SECOND) LIMIT 1",
-            soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo), soci::use(interval.total_seconds()),
+            soci::use(pair.source), soci::use(pair.destination), soci::use(interval.total_seconds()),
             soci::into(avgDuration, isNullAvg);
 
         return avgDuration;
@@ -712,10 +630,10 @@ public:
         soci::rowset<soci::row> rs = (sql.prepare <<
             "SELECT file_state, retry, current_failures AS recoverable FROM t_file USE INDEX(idx_finish_time)"
             " WHERE "
-            "      source_se = :source AND dest_se = :dst AND vo_name = :vo_name AND  "
+            "      source_se = :source AND dest_se = :dst AND "
             "      finish_time > (UTC_TIMESTAMP() - interval :calculateTimeFrame SECOND) AND "
             "file_state <> 'NOT_USED' ",
-            soci::use(pair.source), soci::use(pair.destination), soci::use(pair.vo), soci::use(interval.total_seconds())
+            soci::use(pair.source), soci::use(pair.destination), soci::use(interval.total_seconds())
         );
 
         int nFailedLastHour = 0;
@@ -799,8 +717,8 @@ public:
 
         sql << "UPDATE t_optimizer "
                "SET nostreams = :nostreams, datetime = UTC_TIMESTAMP() "
-               "WHERE source_se = :source AND dest_se = :dest AND vo_name = :vo_name",
-            soci::use(pair.source, "source"), soci::use(pair.destination, "dest"), soci::use(pair.vo, "vo_name"),
+               "WHERE source_se = :source AND dest_se = :dest",
+            soci::use(pair.source, "source"), soci::use(pair.destination, "dest"),
             soci::use(streams, "nostreams");
 
         sql.commit();
